@@ -15,13 +15,29 @@
   .btn-ico { background:rgba(95,180,255,.08); border:1px solid rgba(95,180,255,.35); color:var(--azul); width:40px; height:40px; border-radius:50%; font-size:18px; display:grid; place-items:center; }
   .iconos { display:flex; gap:8px; }
   .bottom { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 18px); z-index:5; display:flex; flex-direction:column; align-items:center; gap:12px; }
-  #texto { min-height:3.6em; max-height:7.5em; overflow:auto; width:100%; max-width:560px; text-align:center; font-size:16px; line-height:1.45; color:var(--blanco); text-shadow:0 0 10px rgba(95,180,255,.35); }
-  #estado { font-size:13px; color:var(--tenue); height:1.2em; }
-  .fila { display:flex; gap:10px; width:100%; max-width:560px; align-items:center; }
-  #entrada { flex:1; background:rgba(95,180,255,.07); border:1px solid rgba(95,180,255,.3); border-radius:22px; padding:12px 16px; color:var(--blanco); font-size:16px; outline:none; }
-  #entrada:focus-visible, button:focus-visible { outline:2px solid var(--blanco); outline-offset:2px; }
-  #mic { width:56px; height:56px; border-radius:50%; border:1.5px solid var(--azul); background:radial-gradient(circle at 50% 40%, rgba(95,180,255,.35), rgba(95,180,255,.06)); color:var(--blanco); font-size:22px; box-shadow:0 0 18px rgba(95,180,255,.45); flex:none; }
-  #mic.on { background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.6), rgba(95,180,255,.3)); box-shadow:0 0 28px rgba(160,215,255,.9); }
+  #texto { min-height:3.6em; max-height:7.5em; overflow:auto; width:100%; max-width:560px; text-align:left; font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:14px; letter-spacing:.02em; line-height:1.55; color:#bfe6ff; padding:10px 14px; border-left:2px solid rgba(95,180,255,.65); background:linear-gradient(90deg, rgba(95,180,255,.12), rgba(95,180,255,0)); text-shadow:0 0 10px rgba(95,180,255,.4); }
+  #estado { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--azul); height:1.2em; opacity:.85; }
+  .fila { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; max-width:560px; }
+  .terminal { width:100%; min-width:0; display:none; align-items:center; gap:8px; height:48px; padding:0 4px 0 12px; border-left:1px solid rgba(95,180,255,.6); border-bottom:1px solid rgba(95,180,255,.6); background:linear-gradient(0deg, rgba(95,180,255,.14), rgba(95,180,255,0)); box-shadow:0 8px 14px -10px rgba(95,180,255,.8); }
+  .fila.teclado .terminal { display:flex; }
+  .terminal:focus-within { border-color:var(--blanco); }
+  .prompt { color:var(--azul); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; }
+  #entrada { flex:1; min-width:0; background:transparent; border:0; padding:0; color:var(--blanco); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; outline:none; }
+  #entrada::placeholder { color:var(--tenue); }
+  #enviar { flex:none; width:40px; height:40px; padding:0; background:transparent; border:0; color:var(--azul); display:grid; place-items:center; }
+  #enviar svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
+  button:focus-visible { outline:2px solid var(--blanco); outline-offset:2px; }
+  #mic { position:relative; width:84px; height:84px; flex:none; padding:0; background:transparent; border:0; color:var(--azul); filter:drop-shadow(0 0 8px rgba(95,180,255,.7)); }
+  #mic svg { width:100%; height:100%; display:block; }
+  #mic .hex { fill:rgba(95,180,255,.1); stroke:currentColor; stroke-width:2; stroke-linejoin:round; }
+  #mic .ico { fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; }
+  #mic.on { color:var(--blanco); filter:drop-shadow(0 0 14px rgba(170,220,255,.95)); animation:latido 1.1s ease-in-out infinite; }
+  #mic.on .hex { fill:rgba(160,215,255,.28); }
+  .opciones { display:flex; gap:26px; justify-content:center; }
+  .opciones button { background:transparent; border:0; border-bottom:1px solid rgba(95,180,255,.35); color:var(--tenue); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; padding:6px 2px; }
+  .opciones button.act { color:var(--blanco); border-color:var(--azul); }
+  @keyframes latido { 50% { transform:scale(1.08); } }
+  @media (prefers-reduced-motion: reduce) { #mic.on { animation:none; } }
   .panel { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:10; display:none; align-items:center; justify-content:center; padding:20px; }
   .panel.abierto { display:flex; }
   .caja { width:100%; max-width:440px; background:#050b14; border:1px solid rgba(95,180,255,.4); border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:12px; max-height:90vh; overflow:auto; }
@@ -48,8 +64,23 @@
   <div id="texto" aria-live="polite"></div>
   <div id="estado"></div>
   <div class="fila">
-    <input id="entrada" type="text" placeholder="Escríbele a Nova" autocomplete="off" enterkeyhint="send">
-    <button id="mic" aria-label="Hablar con Nova">🎙</button>
+    <div class="terminal">
+      <span class="prompt">&gt;</span>
+      <input id="entrada" type="text" placeholder="Escribe aquí…" autocomplete="off" enterkeyhint="send">
+      <button id="enviar" aria-label="Enviar"><svg viewBox="0 0 24 24"><path d="M8 4l8 8-8 8"/></svg></button>
+    </div>
+    <button id="mic" aria-label="Hablar con Nova">
+      <svg viewBox="0 0 64 64" aria-hidden="true">
+        <polygon class="hex" points="32,4 56,18 56,46 32,60 8,46 8,18"/>
+        <rect class="ico" x="27" y="16" width="10" height="19" rx="5"/>
+        <path class="ico" d="M21 30a11 11 0 0 0 22 0M32 41v6M26 47h12"/>
+      </svg>
+    </button>
+    <div class="opciones">
+      <button id="optVoz">Voz</button>
+      <button id="optTeclado">Teclado</button>
+      <button id="optAjustes">Ajustes</button>
+    </div>
   </div>
 </div>
 
@@ -398,9 +429,9 @@
       mostrar(/API key|invalid|permission/i.test(m) ? 'La clave de Gemini no funciona. Revísala en Ajustes.' : 'No pude conectar con Gemini: ' + m);
     });
   }
-  elEntrada.addEventListener('keydown', function (e) {
-    if (e.key === 'Enter') { var v = elEntrada.value.trim(); elEntrada.value = ''; conversacion = false; enviar(v); }
-  });
+  function enviarEscrito() { var v = elEntrada.value.trim(); elEntrada.value = ''; conversacion = false; enviar(v); }
+  elEntrada.addEventListener('keydown', function (e) { if (e.key === 'Enter') enviarEscrito(); });
+  document.getElementById('enviar').addEventListener('click', enviarEscrito);
 
   /* ---------- Ajustes ---------- */
   var panel = document.getElementById('panel');
@@ -413,6 +444,15 @@
     cargarVoces(); pintarRecuerdos(); panel.classList.add('abierto');
   }
   document.getElementById('abrirAjustes').addEventListener('click', abrirPanel);
+  document.getElementById('optAjustes').addEventListener('click', abrirPanel);
+  document.getElementById('optVoz').addEventListener('click', function () {
+    abrirPanel();
+    setTimeout(function () { var sv = document.getElementById('vozSel'); if (sv) sv.focus(); }, 50);
+  });
+  document.getElementById('optTeclado').addEventListener('click', function () {
+    var f = document.querySelector('.fila'); var on = f.classList.toggle('teclado');
+    this.classList.toggle('act', on); if (on) elEntrada.focus();
+  });
   document.getElementById('cerrar').addEventListener('click', function () { panel.classList.remove('abierto'); });
   document.getElementById('guardar').addEventListener('click', function () {
     guardar('nova_clave', document.getElementById('clave').value.trim());
