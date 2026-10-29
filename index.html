@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Nova</title>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#04060D">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+:root{--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33}}
+:root[data-theme="dark"]{--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33}
+html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
+body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
+.app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px 20px 24px;box-sizing:border-box}
+.name{font-size:20px;font-weight:700;letter-spacing:10px;color:var(--accent);margin:0;text-align:center}
+.status{font-size:15px;color:var(--muted);margin:8px 0 0;text-align:center;min-height:20px}
+#stage{flex:1;width:100%;min-height:0}
+#stage canvas{width:100%;height:100%;display:block}
+.bottom{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
+.caption{width:100%;max-width:360px;min-height:42px;max-height:92px;overflow:auto;font-size:14px;line-height:1.45;color:var(--fg);text-align:center;margin:0}
+#mic{width:72px;height:72px;border-radius:50%;border:0;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(45,140,255,.6);cursor:pointer}
+#mic[aria-pressed="true"]{box-shadow:0 0 50px rgba(45,140,255,.95)}
+.hint{font-size:13px;color:var(--muted);text-align:center;min-height:18px}
+.link{background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;padding:12px 16px;cursor:pointer;min-height:44px}
+.typing{display:none;width:100%;max-width:360px;gap:8px}
+.typing input{flex:1;min-width:0;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(45,140,255,.45);background:var(--panel);color:var(--fg);font-size:16px}
+.typing button{padding:0 16px;min-height:44px;border-radius:12px;border:0;background:var(--accent);color:#04060D;font-size:15px;font-weight:600;cursor:pointer}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+</head>
+<body>
+<div class="app">
+<div><h1 class="name">NOVA</h1><p class="status" id="status" aria-live="polite">Toca el micrófono y háblale a Nova</p></div>
+<div id="stage" role="img" aria-label="Esfera de puntos de luz de Nova"></div>
+<div class="bottom">
+<p class="caption" id="caption" aria-live="polite"></p>
+<div class="typing" id="cfg"><input id="keyIn" type="password" aria-label="Clave de Gemini" placeholder="Pega aquí tu clave de Gemini"><button id="saveKey">Guardar</button></div>
+<div class="typing" id="typing"><input id="txt" type="text" aria-label="Escríbele a Nova" placeholder="Escríbele a Nova..."><button id="send">Enviar</button></div>
+<button id="mic" aria-label="Hablar con Nova" aria-pressed="false"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#04060D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
+<div class="hint" id="hint">Toca para hablar</div>
+<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center"><button class="link" id="kb">Prefiero escribir</button><button class="link" id="vz">Cambiar voz</button><button class="link" id="cfgBtn">Configurar IA</button></div>
+</div>
+</div>
+<script>
+(function(){
+var stage=document.getElementById('stage'),statusEl=document.getElementById('status'),hint=document.getElementById('hint'),mic=document.getElementById('mic'),caption=document.getElementById('caption'),typing=document.getElementById('typing'),txt=document.getElementById('txt'),sendBtn=document.getElementById('send'),kb=document.getElementById('kb'),cfg=document.getElementById('cfg'),keyIn=document.getElementById('keyIn');
+var renderer;
+try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch(e){stage.textContent='Tu navegador no puede mostrar la esfera 3D.';return;}
+renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
+stage.appendChild(renderer.domElement);
+var scene=new THREE.Scene();
+var camera=new THREE.PerspectiveCamera(45,1,0.1,50);
+camera.position.z=5.4;
+function glowTex(stops){
+var c=document.createElement('canvas');c.width=c.height=128;
+var g=c.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);
+stops.forEach(function(s){gr.addColorStop(s[0],s[1]);});
+g.fillStyle=gr;g.fillRect(0,0,128,128);
+return new THREE.CanvasTexture(c);
+}
+function labelTex(t){
+var c=document.createElement('canvas');c.width=256;c.height=64;
+var g=c.getContext('2d');
+g.font='600 30px Segoe UI, Roboto, Arial, sans-serif';g.textAlign='center';g.textBaseline='middle';
+g.fillStyle='#BFE6FF';g.fillText(t,128,32);
+return new THREE.CanvasTexture(c);
+}
+var group=new THREE.Group();scene.add(group);
+var halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex([[0,'rgba(120,200,255,0.55)'],[0.5,'rgba(45,140,255,0.2)'],[1,'rgba(45,140,255,0)']]),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+halo.scale.set(4.4,4.4,1);scene.add(halo);
+var N1=2200,N2=700,N=N1+N2;
+var base=new Float32Array(N*3),col=new Float32Array(N*3),i,k;
+var ga=Math.PI*(3-Math.sqrt(5));
+for(i=0;i<N1;i++){
+var y=1-2*(i+0.5)/N1,r=Math.sqrt(1-y*y),th=ga*i;
+base[i*3]=Math.cos(th)*r*1.25;base[i*3+1]=y*1.25;base[i*3+2]=Math.sin(th)*r*1.25;
+}
+for(i=N1;i<N;i++){
+var u=Math.random()*2-1,ph=Math.random()*Math.PI*2,rr=Math.sqrt(1-u*u),rad=0.35+Math.random()*0.7;
+base[i*3]=Math.cos(ph)*rr*rad;base[i*3+1]=u*rad;base[i*3+2]=Math.sin(ph)*rr*rad;
+}
+for(i=0;i<N;i++){
+var m=Math.random(),warm=Math.random()<0.03;
+if(warm&&i<N1){var sx=1.2+Math.random()*0.7;base[i*3]*=sx;base[i*3+1]*=sx;base[i*3+2]*=sx;}
+var dim=i>=N1?0.45:1;col[i*3]=(warm?1:0.2+0.3*m)*dim;col[i*3+1]=(warm?0.85:0.75+0.25*m)*dim;col[i*3+2]=(warm?0.5:1)*dim;
+}
+var geo=new THREE.BufferGeometry();
+geo.setAttribute('position',new THREE.BufferAttribute(base.slice(),3));
+geo.setAttribute('color',new THREE.BufferAttribute(col,3));
+var pm=new THREE.PointsMaterial({size:0.055,map:glowTex([[0,'rgba(255,255,255,1)'],[0.4,'rgba(255,255,255,0.9)'],[1,'rgba(255,255,255,0)']]),vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
+group.add(new THREE.Points(geo,pm));
+var pm2=new THREE.PointsMaterial({size:0.13,map:pm.map,vertexColors:true,transparent:true,opacity:0.4,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
+group.add(new THREE.Points(geo,pm2));
+var core=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex([[0,'rgba(255,250,225,1)'],[0.25,'rgba(255,214,120,0.95)'],[0.6,'rgba(255,190,90,0.35)'],[1,'rgba(255,170,60,0)']]),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
+core.scale.set(1,1,1);scene.add(core);
+var words=[['voz',1.55,0.5,0.3],['ideas',-1.5,0.8,0.5],['videos',0.3,-1.6,0.6],['tareas',-1.0,-0.9,-1.2],['Nova',1.2,1.0,-1.0]];
+words.forEach(function(w){
+var s=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex(w[0]),transparent:true,opacity:0.8,depthTest:false}));
+s.scale.set(0.8,0.2,1);s.position.set(w[1],w[2],w[3]);group.add(s);
+});
+function fit(){
+var w=stage.clientWidth||300,h=stage.clientHeight||300;
+renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=Math.max(5.4,5.2/camera.aspect);camera.updateProjectionMatrix();
+}
+window.addEventListener('resize',fit);fit();
+
+var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+var state='idle',history=[],rec=null,boost=0,sampleNs=null,turn=0;
+var STATUS={idle:'Toca el micrófono y háblale a Nova',listening:'Nova te escucha...',thinking:'Nova está pensando...',speaking:'Nova habla...'};
+function setState(s,msg){
+state=s;
+mic.setAttribute('aria-pressed',s==='idle'?'false':'true');
+statusEl.textContent=STATUS[s];
+hint.textContent=msg||(s==='idle'?'Toca para hablar':'Toca para parar');
+}
+function showTyping(msg){
+typing.style.display='flex';kb.style.display='none';
+if(msg){hint.textContent=msg;}
+}
+function stopSpeech(){if(window.speechSynthesis){try{speechSynthesis.cancel();}catch(e){}}}
+function stopAll(){
+turn++;
+if(rec){try{rec.abort();}catch(e){}rec=null;}
+stopSpeech();
+setState('idle');
+}
+function speak(t){
+if(!window.speechSynthesis){setState('idle','Tu navegador no puede hablar, lee la respuesta arriba');return;}
+var u=new SpeechSynthesisUtterance(t);
+u.lang='es-MX';u.rate=1.02;u.pitch=1;
+var v=currentVoice();
+if(v){u.voice=v;u.lang=v.lang;}
+u.onend=function(){if(state==='speaking'){setState('idle');}};
+u.onerror=u.onend;
+u.onboundary=function(){boost=1;};
+setState('speaking');
+speechSynthesis.cancel();
+speechSynthesis.speak(u);
+}
+var vIdx=0,vList=[];
+function esVoices(){
+var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
+var es=vs.filter(function(x){return /^es/i.test(x.lang);});
+function score(x){return (/natural|neural|online/i.test(x.name)?3:0)+(/google/i.test(x.name)?2:0)+(x.localService?0:1);}
+es.sort(function(a,b){return score(b)-score(a);});
+return es;
+}
+function currentVoice(){vList=esVoices();if(!vList.length){return null;}return vList[vIdx%vList.length];}
+document.getElementById('vz').addEventListener('click',function(){
+vList=esVoices();
+if(!vList.length){hint.textContent='Tu celular no tiene otras voces en español';return;}
+vIdx=(vIdx+1)%vList.length;
+var v=vList[vIdx];
+stopSpeech();
+var u=new SpeechSynthesisUtterance('Hola, soy Nova');u.voice=v;u.lang=v.lang;
+speechSynthesis.speak(u);
+hint.textContent='Voz '+(vIdx+1)+' de '+vList.length+': '+v.name;
+});
+var PROMPT='Eres Nova, una asistente de IA futurista, amable y segura de sí misma. Respondes siempre en español, en 1 a 3 frases cortas. No uses markdown, listas, emojis ni símbolos raros, porque tu respuesta se lee en voz alta. Si no sabes algo, dilo con honestidad.';
+var KEYN='nova_gemini_key';
+function getKey(){try{return localStorage.getItem(KEYN)||'';}catch(e){return '';}}
+function showCfg(msg){cfg.style.display='flex';if(msg){hint.textContent=msg;}keyIn.focus();}
+document.getElementById('cfgBtn').addEventListener('click',function(){showCfg('Consigue tu clave gratis en aistudio.google.com');});
+document.getElementById('saveKey').addEventListener('click',function(){
+var v=keyIn.value.trim();
+if(!v){return;}
+try{localStorage.setItem(KEYN,v);}catch(e){}
+keyIn.value='';cfg.style.display='none';hint.textContent='Clave guardada. Ya puedes hablarle a Nova';
+});
+var MODELS=['gemini-2.5-flash','gemini-3.5-flash'];
+async function askGemini(key,text){
+var contents=history.slice(-8).map(function(h){return {role:h.r==='u'?'user':'model',parts:[{text:h.t}]};}).concat([{role:'user',parts:[{text:text}]}]);
+for(var m=0;m<MODELS.length;m++){
+var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+MODELS[m]+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:contents,generationConfig:{temperature:0.8}})});
+if(r.status===404){continue;}
+var j=await r.json();
+if(!r.ok){throw {code:r.status};}
+var parts=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[];
+return parts.map(function(p){return p.text||'';}).join('');
+}
+throw {code:404};
+}
+async function ask(text){
+var my=++turn;
+setState('thinking');
+caption.textContent='Tú: '+text;
+var key=getKey();
+if(!key){setState('idle');showCfg('Primero pega tu clave de Gemini para que Nova pueda pensar');return;}
+try{
+var ans=(await askGemini(key,text)).replace(/[*#_`]/g,'').trim();
+if(my!==turn){return;}
+if(!ans){setState('idle','Nova no pudo responder, intenta otra vez');return;}
+history.push({r:'u',t:text},{r:'n',t:ans});
+caption.textContent='Nova: '+ans;
+speak(ans);
+}catch(e){
+if(my!==turn){return;}
+var c=e&&e.code;
+setState('idle',(c===400||c===403)?'La clave no sirve, revísala en Configurar IA':c===429?'Vas muy rápido, espera un momento':'Nova no pudo responder, revisa tu internet');
+}
+}
+function listen(){
+stopSpeech();
+if(!SR){showTyping('Tu navegador no tiene reconocimiento de voz. Escríbele a Nova.');return;}
+var finalText='',r;
+try{r=new SR();}catch(e){showTyping('No pude activar la voz. Escríbele a Nova.');return;}
+rec=r;
+r.lang='es-MX';r.interimResults=true;r.continuous=false;
+r.onresult=function(e){
+var t='';
+for(var j=0;j<e.results.length;j++){t+=e.results[j][0].transcript;}
+caption.textContent='Tú: '+t;boost=1;
+if(e.results[e.results.length-1].isFinal){finalText=t;}
+};
+r.onerror=function(e){
+if(e.error==='not-allowed'||e.error==='service-not-allowed'){setState('idle');showTyping('No tengo permiso para el micrófono. Puedes escribirle a Nova.');}
+else if(e.error==='no-speech'){setState('idle','No te escuché, intenta de nuevo');}
+else if(e.error!=='aborted'){setState('idle','Error de voz, intenta de nuevo');}
+};
+r.onend=function(){
+if(rec!==r){return;}
+rec=null;
+if(state==='listening'){
+if(finalText){ask(finalText);}else{setState('idle','No te escuché, intenta de nuevo');}
+}
+};
+setState('listening');
+caption.textContent='';
+try{r.start();}catch(e){setState('idle','No pude activar el micrófono');}
+}
+mic.addEventListener('click',function(){if(state==='idle'){listen();}else{stopAll();}});
+kb.addEventListener('click',function(){showTyping();txt.focus();});
+function sendTyped(){
+var v=txt.value.trim();
+if(!v||state==='thinking'){return;}
+txt.value='';
+stopSpeech();
+ask(v);
+}
+sendBtn.addEventListener('click',sendTyped);
+txt.addEventListener('keydown',function(e){if(e.key==='Enter'){sendTyped();}});
+
+var level=0;
+function frame(now){
+var t=now/1000,tl=0;
+boost*=0.92;
+if(state==='listening'){tl=0.1+0.5*boost+0.05*Math.sin(t*4);}
+else if(state==='thinking'){tl=0.15+0.1*Math.sin(t*3);}
+else if(state==='speaking'){tl=0.3+0.3*boost+0.2*Math.max(0,Math.sin(t*7)*Math.sin(t*2.3+1));}
+level+=(tl-level)*0.15;
+var p=geo.attributes.position.array,amp=0.05+level*0.5;
+for(i=0;i<N;i++){
+var bx=base[i*3],by=base[i*3+1],bz=base[i*3+2];
+var d=(Math.sin(bx*3+t*2)+Math.sin(by*4+t*2.5)+Math.sin(bz*5+t*1.7))/3;
+var f=1+amp*d*0.6;
+p[i*3]=bx*f;p[i*3+1]=by*f;p[i*3+2]=bz*f;
+}
+geo.attributes.position.needsUpdate=true;
+group.rotation.y+=0.003+level*0.025;
+group.rotation.x=Math.sin(t*0.4)*0.2;
+pm.size=0.055+level*0.03;pm2.size=0.14+level*0.07;
+var cs=0.9+level*0.8+0.05*Math.sin(t*3);
+core.scale.set(cs,cs,1);
+halo.material.opacity=0.7+level*0.3;
+renderer.render(scene,camera);
+requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
+})();
+</script>
+<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
+</body>
+</html>
