@@ -1,341 +1,399 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta name="theme-color" content="#000000">
 <title>Nova</title>
-<link rel="manifest" href="manifest.webmanifest">
-<meta name="theme-color" content="#04060D">
-<link rel="icon" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
 <style>
-:root{--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
-@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33}}
-:root[data-theme="dark"]{--bg:#04060D;--fg:#E8F1FF;--muted:#8FA6C9;--accent:#2D8CFF;--panel:#0E1A33}
-html{scroll-padding-top:env(safe-area-inset-top,0px);height:100%}
-body{margin:0;height:100%;background:var(--bg);color:var(--fg);font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;overflow:hidden}
-.app{height:100%;display:flex;flex-direction:column;align-items:center;justify-content:space-between;padding:24px 20px 24px;box-sizing:border-box}
-.name{font-size:20px;font-weight:700;letter-spacing:10px;color:var(--accent);margin:0;text-align:center}
-.status{font-size:15px;color:var(--muted);margin:8px 0 0;text-align:center;min-height:20px}
-#stage{flex:1;width:100%;min-height:0}
-#stage canvas{width:100%;height:100%;display:block}
-.bottom{display:flex;flex-direction:column;align-items:center;gap:10px;width:100%}
-.caption{width:100%;max-width:360px;min-height:42px;max-height:92px;overflow:auto;font-size:14px;line-height:1.45;color:var(--fg);text-align:center;margin:0}
-#mic{width:72px;height:72px;border-radius:50%;border:0;background:var(--accent);display:flex;align-items:center;justify-content:center;box-shadow:0 0 30px rgba(45,140,255,.6);cursor:pointer}
-#mic[aria-pressed="true"]{box-shadow:0 0 50px rgba(45,140,255,.95)}
-.hint{font-size:13px;color:var(--muted);text-align:center;min-height:18px}
-.link{background:none;border:0;color:var(--muted);font-size:13px;text-decoration:underline;padding:12px 16px;cursor:pointer;min-height:44px}
-.typing{display:none;width:100%;max-width:360px;gap:8px}
-.typing input{flex:1;min-width:0;box-sizing:border-box;padding:12px 14px;border-radius:12px;border:1px solid rgba(45,140,255,.45);background:var(--panel);color:var(--fg);font-size:16px}
-.typing button{padding:0 16px;min-height:44px;border-radius:12px;border:0;background:var(--accent);color:#04060D;font-size:15px;font-weight:600;cursor:pointer}
+  :root { --bg:#000; --azul:#5fb4ff; --blanco:#eaf6ff; --tenue:#6f8fb0; }
+  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+  html, body { margin:0; height:100%; background:var(--bg); color:var(--blanco); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow:hidden; }
+  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
+  .top { position:fixed; top:0; left:0; right:0; padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0; display:flex; justify-content:space-between; align-items:center; z-index:5; }
+  .marca { letter-spacing:.32em; font-weight:300; font-size:15px; color:var(--azul); text-shadow:0 0 12px rgba(95,180,255,.7); }
+  .btn-ico { background:rgba(95,180,255,.08); border:1px solid rgba(95,180,255,.35); color:var(--azul); width:40px; height:40px; border-radius:50%; font-size:18px; display:grid; place-items:center; }
+  .iconos { display:flex; gap:8px; }
+  .bottom { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 18px); z-index:5; display:flex; flex-direction:column; align-items:center; gap:12px; }
+  #texto { min-height:3.6em; max-height:7.5em; overflow:auto; width:100%; max-width:560px; text-align:center; font-size:16px; line-height:1.45; color:var(--blanco); text-shadow:0 0 10px rgba(95,180,255,.35); }
+  #estado { font-size:13px; color:var(--tenue); height:1.2em; }
+  .fila { display:flex; gap:10px; width:100%; max-width:560px; align-items:center; }
+  #entrada { flex:1; background:rgba(95,180,255,.07); border:1px solid rgba(95,180,255,.3); border-radius:22px; padding:12px 16px; color:var(--blanco); font-size:16px; outline:none; }
+  #entrada:focus-visible, button:focus-visible { outline:2px solid var(--blanco); outline-offset:2px; }
+  #mic { width:56px; height:56px; border-radius:50%; border:1.5px solid var(--azul); background:radial-gradient(circle at 50% 40%, rgba(95,180,255,.35), rgba(95,180,255,.06)); color:var(--blanco); font-size:22px; box-shadow:0 0 18px rgba(95,180,255,.45); flex:none; }
+  #mic.on { background:radial-gradient(circle at 50% 40%, rgba(255,255,255,.6), rgba(95,180,255,.3)); box-shadow:0 0 28px rgba(160,215,255,.9); }
+  .panel { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:10; display:none; align-items:center; justify-content:center; padding:20px; }
+  .panel.abierto { display:flex; }
+  .caja { width:100%; max-width:440px; background:#050b14; border:1px solid rgba(95,180,255,.4); border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:12px; max-height:90vh; overflow:auto; }
+  .caja h2 { margin:0; font-size:18px; font-weight:500; color:var(--azul); }
+  .caja p, .caja label { margin:0; font-size:14px; line-height:1.5; color:#b9d3ea; }
+  .caja input, .caja select { width:100%; background:#02060c; border:1px solid rgba(95,180,255,.35); border-radius:10px; padding:11px 12px; color:var(--blanco); font-size:15px; }
+  .caja button { border-radius:10px; padding:12px; font-size:15px; border:1px solid rgba(95,180,255,.5); background:rgba(95,180,255,.14); color:var(--blanco); }
+  .caja button.peligro { border-color:rgba(255,120,120,.5); background:rgba(255,120,120,.1); }
+  #recuerdos { font-size:13px; color:#9fbad3; white-space:pre-wrap; background:#02060c; border-radius:10px; padding:10px; max-height:140px; overflow:auto; }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto; } }
 </style>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 </head>
 <body>
-<div class="app">
-<div><h1 class="name">NOVA</h1><p class="status" id="status" aria-live="polite">Toca el micrófono y háblale a Nova</p></div>
-<div id="stage" role="img" aria-label="Esfera de puntos de luz de Nova"></div>
+<canvas id="lienzo" aria-label="Esfera de Nova"></canvas>
+
+<div class="top">
+  <div class="marca">NOVA</div>
+  <div class="iconos">
+    <button class="btn-ico" id="abrirAjustes" aria-label="Ajustes">⚙</button>
+  </div>
+</div>
+
 <div class="bottom">
-<p class="caption" id="caption" aria-live="polite"></p>
-<div class="typing" id="cfg"><input id="keyIn" type="password" aria-label="Clave de Gemini" placeholder="Pega aquí tu clave de Gemini"><button id="saveKey">Guardar</button></div>
-<div class="typing" id="typing"><input id="txt" type="text" aria-label="Escríbele a Nova" placeholder="Escríbele a Nova..."><button id="send">Enviar</button></div>
-<button id="mic" aria-label="Hablar con Nova" aria-pressed="false"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#04060D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0"></path><path d="M12 18v3"></path></svg></button>
-<div class="hint" id="hint">Toca para hablar</div>
-<div style="display:flex;gap:4px;flex-wrap:wrap;justify-content:center"><button class="link" id="kb">Prefiero escribir</button><button class="link" id="vz">Cambiar voz</button><button class="link" id="cfgBtn">Configurar IA</button></div>
+  <div id="texto" aria-live="polite"></div>
+  <div id="estado"></div>
+  <div class="fila">
+    <input id="entrada" type="text" placeholder="Escríbele a Nova" autocomplete="off" enterkeyhint="send">
+    <button id="mic" aria-label="Hablar con Nova">🎙</button>
+  </div>
 </div>
+
+<div class="panel" id="panel">
+  <div class="caja">
+    <h2>Ajustes de Nova</h2>
+    <label for="clave">Clave de Gemini</label>
+    <input id="clave" type="password" placeholder="Pega aquí tu clave" autocomplete="off">
+    <label for="vozSel">Voz</label>
+    <select id="vozSel"></select>
+    <label for="velocidad">Velocidad de la voz</label>
+    <input id="velocidad" type="range" min="0.8" max="1.3" step="0.05" value="1.05">
+    <p>Lo que Nova recuerda de ti:</p>
+    <div id="recuerdos">Todavía nada.</div>
+    <button id="guardar">Guardar</button>
+    <button id="borrarMem" class="peligro">Borrar memoria de Nova</button>
+    <button id="cerrar">Cerrar</button>
+  </div>
 </div>
+
 <script>
-(function(){
-var stage=document.getElementById('stage'),statusEl=document.getElementById('status'),hint=document.getElementById('hint'),mic=document.getElementById('mic'),caption=document.getElementById('caption'),typing=document.getElementById('typing'),txt=document.getElementById('txt'),sendBtn=document.getElementById('send'),kb=document.getElementById('kb'),cfg=document.getElementById('cfg'),keyIn=document.getElementById('keyIn');
-var renderer;
-try{renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});}catch(e){stage.textContent='Tu navegador no puede mostrar la esfera 3D.';return;}
-renderer.setPixelRatio(Math.min(window.devicePixelRatio||1,2));
-stage.appendChild(renderer.domElement);
-var scene=new THREE.Scene();
-var camera=new THREE.PerspectiveCamera(45,1,0.1,50);
-camera.position.z=5.4;
-function glowTex(stops){
-var c=document.createElement('canvas');c.width=c.height=128;
-var g=c.getContext('2d'),gr=g.createRadialGradient(64,64,0,64,64,64);
-stops.forEach(function(s){gr.addColorStop(s[0],s[1]);});
-g.fillStyle=gr;g.fillRect(0,0,128,128);
-return new THREE.CanvasTexture(c);
-}
-function labelTex(t){
-var c=document.createElement('canvas');c.width=256;c.height=64;
-var g=c.getContext('2d');
-g.font='600 30px Segoe UI, Roboto, Arial, sans-serif';g.textAlign='center';g.textBaseline='middle';
-g.fillStyle='#BFE6FF';g.fillText(t,128,32);
-return new THREE.CanvasTexture(c);
-}
-var group=new THREE.Group();scene.add(group);
-var halo=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex([[0,'rgba(120,200,255,0.55)'],[0.5,'rgba(45,140,255,0.2)'],[1,'rgba(45,140,255,0)']]),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-halo.scale.set(4.4,4.4,1);scene.add(halo);
-var N1=2200,N2=700,N=N1+N2;
-var base=new Float32Array(N*3),col=new Float32Array(N*3),i,k;
-var ga=Math.PI*(3-Math.sqrt(5));
-for(i=0;i<N1;i++){
-var y=1-2*(i+0.5)/N1,r=Math.sqrt(1-y*y),th=ga*i;
-base[i*3]=Math.cos(th)*r*1.25;base[i*3+1]=y*1.25;base[i*3+2]=Math.sin(th)*r*1.25;
-}
-for(i=N1;i<N;i++){
-var u=Math.random()*2-1,ph=Math.random()*Math.PI*2,rr=Math.sqrt(1-u*u),rad=0.35+Math.random()*0.7;
-base[i*3]=Math.cos(ph)*rr*rad;base[i*3+1]=u*rad;base[i*3+2]=Math.sin(ph)*rr*rad;
-}
-for(i=0;i<N;i++){
-var m=Math.random(),warm=Math.random()<0.03;
-if(warm&&i<N1){var sx=1.2+Math.random()*0.7;base[i*3]*=sx;base[i*3+1]*=sx;base[i*3+2]*=sx;}
-var dim=i>=N1?0.45:1;col[i*3]=(warm?1:0.2+0.3*m)*dim;col[i*3+1]=(warm?0.85:0.75+0.25*m)*dim;col[i*3+2]=(warm?0.5:1)*dim;
-}
-var geo=new THREE.BufferGeometry();
-geo.setAttribute('position',new THREE.BufferAttribute(base.slice(),3));
-geo.setAttribute('color',new THREE.BufferAttribute(col,3));
-var pm=new THREE.PointsMaterial({size:0.055,map:glowTex([[0,'rgba(255,255,255,1)'],[0.4,'rgba(255,255,255,0.9)'],[1,'rgba(255,255,255,0)']]),vertexColors:true,transparent:true,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
-group.add(new THREE.Points(geo,pm));
-var pm2=new THREE.PointsMaterial({size:0.13,map:pm.map,vertexColors:true,transparent:true,opacity:0.4,depthWrite:false,blending:THREE.AdditiveBlending,sizeAttenuation:true});
-group.add(new THREE.Points(geo,pm2));
-var core=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex([[0,'rgba(255,250,225,1)'],[0.25,'rgba(255,214,120,0.95)'],[0.6,'rgba(255,190,90,0.35)'],[1,'rgba(255,170,60,0)']]),transparent:true,depthWrite:false,blending:THREE.AdditiveBlending}));
-core.scale.set(1,1,1);scene.add(core);
-var words=[['voz',1.55,0.5,0.3],['ideas',-1.5,0.8,0.5],['videos',0.3,-1.6,0.6],['tareas',-1.0,-0.9,-1.2],['Nova',1.2,1.0,-1.0]];
-words.forEach(function(w){
-var s=new THREE.Sprite(new THREE.SpriteMaterial({map:labelTex(w[0]),transparent:true,opacity:0.8,depthTest:false}));
-s.scale.set(0.8,0.2,1);s.position.set(w[1],w[2],w[3]);group.add(s);
-});
-function fit(){
-var w=stage.clientWidth||300,h=stage.clientHeight||300;
-renderer.setSize(w,h,false);camera.aspect=w/h;camera.position.z=Math.max(5.4,5.2/camera.aspect);camera.updateProjectionMatrix();
-}
-window.addEventListener('resize',fit);fit();
+(function () {
+  'use strict';
 
-var SR=window.SpeechRecognition||window.webkitSpeechRecognition;
-var state='idle',history=[],rec=null,boost=0,sampleNs=null,turn=0;
-var STATUS={idle:'Toca el micrófono y háblale a Nova',listening:'Nova te escucha...',thinking:'Nova está pensando...',speaking:'Nova habla...'};
-function setState(s,msg){
-state=s;
-mic.setAttribute('aria-pressed',s==='idle'?'false':'true');
-statusEl.textContent=STATUS[s];
-hint.textContent=msg||(s==='idle'?'Toca para hablar':'Toca para parar');
-}
-function showTyping(msg){
-typing.style.display='flex';kb.style.display='none';
-if(msg){hint.textContent=msg;}
-}
-function stopSpeech(){if(ttsSrc){try{ttsSrc.onended=null;ttsSrc.stop();}catch(e){}ttsSrc=null;}if(window.speechSynthesis){try{speechSynthesis.cancel();}catch(e){}}}
-function stopAll(){
-turn++;
-if(rec){try{rec.abort();}catch(e){}rec=null;}
-stopSpeech();
-setState('idle');
-}
-var ttsCtx=null,ttsAnalyser=null,ttsData=null,ttsSrc=null,gIdx=0,useGemini=true;
-var GVOICES=['Kore','Aoede','Zephyr','Puck','Charon','Fenrir'];
-var TTSMODELS=['gemini-3.1-flash-tts-preview','gemini-2.5-flash-preview-tts'];
-function getCtx(){
-if(!ttsCtx){
-var AC=window.AudioContext||window.webkitAudioContext;
-ttsCtx=new AC();
-ttsAnalyser=ttsCtx.createAnalyser();ttsAnalyser.fftSize=256;
-ttsData=new Uint8Array(ttsAnalyser.frequencyBinCount);
-ttsAnalyser.connect(ttsCtx.destination);
-}
-if(ttsCtx.state==='suspended'){ttsCtx.resume();}
-return ttsCtx;
-}
-async function fetchTTS(key,text,voice){
-for(var m=0;m<TTSMODELS.length;m++){
-var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+TTSMODELS[m]+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({contents:[{parts:[{text:'Di en español, con tono natural, cálido y fluido: '+text}]}],generationConfig:{responseModalities:['AUDIO'],speechConfig:{voiceConfig:{prebuiltVoiceConfig:{voiceName:voice}}}}})});
-if(!r.ok){continue;}
-var j=await r.json();
-var p=j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts&&j.candidates[0].content.parts[0];
-if(p&&p.inlineData&&p.inlineData.data){return p.inlineData.data;}
-}
-throw {code:'tts'};
-}
-function playPCM(b64,onend){
-var bin=atob(b64),n=bin.length>>1,f=new Float32Array(n);
-for(var q=0;q<n;q++){var v=bin.charCodeAt(q*2)|(bin.charCodeAt(q*2+1)<<8);if(v>=32768){v-=65536;}f[q]=v/32768;}
-var c=getCtx(),buf=c.createBuffer(1,n,24000);
-buf.copyToChannel(f,0);
-var src=c.createBufferSource();
-src.buffer=buf;src.connect(ttsAnalyser);src.onended=onend;src.start();
-ttsSrc=src;
-}
-async function speak(t){
-var key=getKey(),my=turn;
-if(useGemini&&key){
-try{
-var b64=await fetchTTS(key,t,GVOICES[gIdx]);
-if(my!==turn||state!=='thinking'){return;}
-setState('speaking');
-playPCM(b64,function(){if(state==='speaking'){setState('idle');}});
-return;
-}catch(e){
-if(my!==turn){return;}
-useGemini=false;
-hint.textContent='Voz natural no disponible, uso la del celular';
-}
-}
-speakBrowser(t);
-}
-function speakBrowser(t){
-if(!window.speechSynthesis){setState('idle','Tu navegador no puede hablar, lee la respuesta arriba');return;}
-var u=new SpeechSynthesisUtterance(t);
-u.lang='es-MX';u.rate=1.02;u.pitch=1;
-var v=currentVoice();
-if(v){u.voice=v;u.lang=v.lang;}
-u.onend=function(){if(state==='speaking'){setState('idle');}};
-u.onerror=u.onend;
-u.onboundary=function(){boost=1;};
-setState('speaking');
-speechSynthesis.cancel();
-speechSynthesis.speak(u);
-}
-var vIdx=0,vList=[];
-function esVoices(){
-var vs=window.speechSynthesis?speechSynthesis.getVoices():[];
-var es=vs.filter(function(x){return /^es/i.test(x.lang);});
-function score(x){return (/natural|neural|online/i.test(x.name)?3:0)+(/google/i.test(x.name)?2:0)+(x.localService?0:1);}
-es.sort(function(a,b){return score(b)-score(a);});
-return es;
-}
-function currentVoice(){vList=esVoices();if(!vList.length){return null;}return vList[vIdx%vList.length];}
-document.getElementById('vz').addEventListener('click',function(){
-if(getKey()){
-useGemini=true;
-gIdx=(gIdx+1)%GVOICES.length;
-stopSpeech();
-hint.textContent='Probando voz '+GVOICES[gIdx]+'...';
-(async function(){
-try{
-var b=await fetchTTS(getKey(),'Hola, soy Nova. ¿En qué te ayudo?',GVOICES[gIdx]);
-playPCM(b,function(){});
-hint.textContent='Voz: '+GVOICES[gIdx];
-}catch(e){useGemini=false;hint.textContent='Voz natural no disponible, uso la del celular';}
-})();
-return;
-}
-vList=esVoices();
-if(!vList.length){hint.textContent='Tu celular no tiene otras voces en español';return;}
-vIdx=(vIdx+1)%vList.length;
-var v=vList[vIdx];
-stopSpeech();
-var u=new SpeechSynthesisUtterance('Hola, soy Nova');u.voice=v;u.lang=v.lang;
-speechSynthesis.speak(u);
-hint.textContent='Voz '+(vIdx+1)+' de '+vList.length+': '+v.name;
-});
-var PROMPT='Eres Nova, una asistente de IA futurista, amable y segura de sí misma. Respondes siempre en español, en 1 a 3 frases cortas. No uses markdown, listas, emojis ni símbolos raros, porque tu respuesta se lee en voz alta. Si no sabes algo, dilo con honestidad.';
-var KEYN='nova_gemini_key';
-function getKey(){try{return localStorage.getItem(KEYN)||'';}catch(e){return '';}}
-function showCfg(msg){cfg.style.display='flex';if(msg){hint.textContent=msg;}keyIn.focus();}
-document.getElementById('cfgBtn').addEventListener('click',function(){showCfg('Consigue tu clave gratis en aistudio.google.com');});
-document.getElementById('saveKey').addEventListener('click',function(){
-var v=keyIn.value.trim();
-if(!v){return;}
-try{localStorage.setItem(KEYN,v);}catch(e){}
-keyIn.value='';cfg.style.display='none';hint.textContent='Clave guardada. Ya puedes hablarle a Nova';
-});
-var MODELS=['gemini-2.5-flash','gemini-3.5-flash'];
-async function askGemini(key,text){
-var contents=history.slice(-8).map(function(h){return {role:h.r==='u'?'user':'model',parts:[{text:h.t}]};}).concat([{role:'user',parts:[{text:text}]}]);
-for(var m=0;m<MODELS.length;m++){
-var r=await fetch('https://generativelanguage.googleapis.com/v1beta/models/'+MODELS[m]+':generateContent',{method:'POST',headers:{'Content-Type':'application/json','x-goog-api-key':key},body:JSON.stringify({systemInstruction:{parts:[{text:PROMPT}]},contents:contents,generationConfig:{temperature:0.8}})});
-if(r.status===404){continue;}
-var j=await r.json();
-if(!r.ok){throw {code:r.status};}
-var parts=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[];
-return parts.map(function(p){return p.text||'';}).join('');
-}
-throw {code:404};
-}
-async function ask(text){
-var my=++turn;
-setState('thinking');
-caption.textContent='Tú: '+text;
-var key=getKey();
-if(!key){setState('idle');showCfg('Primero pega tu clave de Gemini para que Nova pueda pensar');return;}
-try{
-var ans=(await askGemini(key,text)).replace(/[*#_`]/g,'').trim();
-if(my!==turn){return;}
-if(!ans){setState('idle','Nova no pudo responder, intenta otra vez');return;}
-history.push({r:'u',t:text},{r:'n',t:ans});
-caption.textContent='Nova: '+ans;
-speak(ans);
-}catch(e){
-if(my!==turn){return;}
-var c=e&&e.code;
-setState('idle',(c===400||c===403)?'La clave no sirve, revísala en Configurar IA':c===429?'Vas muy rápido, espera un momento':'Nova no pudo responder, revisa tu internet');
-}
-}
-function listen(){
-stopSpeech();
-if(!SR){showTyping('Tu navegador no tiene reconocimiento de voz. Escríbele a Nova.');return;}
-var finalText='',r;
-try{r=new SR();}catch(e){showTyping('No pude activar la voz. Escríbele a Nova.');return;}
-rec=r;
-r.lang='es-MX';r.interimResults=true;r.continuous=false;
-r.onresult=function(e){
-var t='';
-for(var j=0;j<e.results.length;j++){t+=e.results[j][0].transcript;}
-caption.textContent='Tú: '+t;boost=1;
-if(e.results[e.results.length-1].isFinal){finalText=t;}
-};
-r.onerror=function(e){
-if(e.error==='not-allowed'||e.error==='service-not-allowed'){setState('idle');showTyping('No tengo permiso para el micrófono. Puedes escribirle a Nova.');}
-else if(e.error==='no-speech'){setState('idle','No te escuché, intenta de nuevo');}
-else if(e.error!=='aborted'){setState('idle','Error de voz, intenta de nuevo');}
-};
-r.onend=function(){
-if(rec!==r){return;}
-rec=null;
-if(state==='listening'){
-if(finalText){ask(finalText);}else{setState('idle','No te escuché, intenta de nuevo');}
-}
-};
-setState('listening');
-caption.textContent='';
-try{r.start();}catch(e){setState('idle','No pude activar el micrófono');}
-}
-mic.addEventListener('click',function(){try{getCtx();}catch(e){}if(state==='idle'){listen();}else{stopAll();}});
-kb.addEventListener('click',function(){showTyping();txt.focus();});
-function sendTyped(){
-var v=txt.value.trim();
-if(!v||state==='thinking'){return;}
-txt.value='';
-stopSpeech();
-ask(v);
-}
-sendBtn.addEventListener('click',sendTyped);
-txt.addEventListener('keydown',function(e){if(e.key==='Enter'){sendTyped();}});
+  /* ---------- Almacenamiento seguro ---------- */
+  function leer(k, def) { try { var v = localStorage.getItem(k); return v === null ? def : v; } catch (e) { return def; } }
+  function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
 
-var level=0;
-function frame(now){
-var t=now/1000,tl=0;
-boost*=0.92;
-if(ttsAnalyser&&state==='speaking'){ttsAnalyser.getByteFrequencyData(ttsData);var ss=0;for(k=0;k<32;k++){ss+=ttsData[k];}boost=Math.max(boost,Math.min(1,ss/32/255*2.5));}
-if(state==='listening'){tl=0.1+0.5*boost+0.05*Math.sin(t*4);}
-else if(state==='thinking'){tl=0.15+0.1*Math.sin(t*3);}
-else if(state==='speaking'){tl=0.3+0.3*boost+0.2*Math.max(0,Math.sin(t*7)*Math.sin(t*2.3+1));}
-level+=(tl-level)*0.15;
-var p=geo.attributes.position.array,amp=0.05+level*0.5;
-for(i=0;i<N;i++){
-var bx=base[i*3],by=base[i*3+1],bz=base[i*3+2];
-var d=(Math.sin(bx*3+t*2)+Math.sin(by*4+t*2.5)+Math.sin(bz*5+t*1.7))/3;
-var f=1+amp*d*0.6;
-p[i*3]=bx*f;p[i*3+1]=by*f;p[i*3+2]=bz*f;
-}
-geo.attributes.position.needsUpdate=true;
-group.rotation.y+=0.003+level*0.025;
-group.rotation.x=Math.sin(t*0.4)*0.2;
-pm.size=0.055+level*0.03;pm2.size=0.14+level*0.07;
-var cs=0.9+level*0.8+0.05*Math.sin(t*3);
-core.scale.set(cs,cs,1);
-halo.material.opacity=0.7+level*0.3;
-renderer.render(scene,camera);
-requestAnimationFrame(frame);
-}
-requestAnimationFrame(frame);
+  var memoria = { hechos: [], historial: [] };
+  try { var m = JSON.parse(leer('nova_mem', '')); if (m && m.hechos && m.historial) memoria = m; } catch (e) {}
+  function guardarMemoria() {
+    memoria.historial = memoria.historial.slice(-30);
+    memoria.hechos = memoria.hechos.slice(-60);
+    guardar('nova_mem', JSON.stringify(memoria));
+  }
+
+  /* ---------- Esfera de plasma ---------- */
+  var cv = document.getElementById('lienzo');
+  var cx = cv.getContext('2d');
+  var W = 0, H = 0, DPR = 1, R = 100;
+  function ajustar() {
+    DPR = Math.min(window.devicePixelRatio || 1, 2);
+    W = window.innerWidth; H = window.innerHeight;
+    cv.width = W * DPR; cv.height = H * DPR;
+    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    R = Math.min(W * 0.4, H * 0.27);
+  }
+  window.addEventListener('resize', ajustar);
+  ajustar();
+
+  var N = 380;
+  var pts = [], aristas = [];
+  (function crear() {
+    var dorado = Math.PI * (3 - Math.sqrt(5));
+    for (var i = 0; i < N; i++) {
+      var y = 1 - (i / (N - 1)) * 2;
+      var r = Math.sqrt(1 - y * y);
+      var th = dorado * i;
+      // irregularidad: la esfera no es perfecta
+      var irr = 1 + (Math.random() - 0.5) * 0.22;
+      var x = Math.cos(th) * r * irr, z = Math.sin(th) * r * irr;
+      var yy = y * irr;
+      var d = 2.2 + Math.random() * 2.2, a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
+      pts.push({
+        x: x, y: yy, z: z,
+        sx: d * Math.sin(b) * Math.cos(a), sy: d * Math.cos(b), sz: d * Math.sin(b) * Math.sin(a),
+        delay: Math.random() * 1.9, fase: Math.random() * 6.283, tam: 0.8 + Math.random() * 1.6,
+        p: 0
+      });
+    }
+    var vistos = {};
+    for (var i2 = 0; i2 < N; i2++) {
+      var ds = [];
+      for (var j = 0; j < N; j++) {
+        if (j === i2) continue;
+        var dx = pts[i2].x - pts[j].x, dy = pts[i2].y - pts[j].y, dz = pts[i2].z - pts[j].z;
+        ds.push({ j: j, d: dx * dx + dy * dy + dz * dz });
+      }
+      ds.sort(function (p, q) { return p.d - q.d; });
+      var k = 3 + (Math.random() < 0.35 ? 1 : 0);
+      for (var n = 0; n < k; n++) {
+        var a2 = Math.min(i2, ds[n].j), b2 = Math.max(i2, ds[n].j), key = a2 + '_' + b2;
+        if (!vistos[key]) { vistos[key] = 1; aristas.push([a2, b2]); }
+      }
+    }
+  })();
+
+  var estado = 'reposo'; // reposo | escuchando | pensando | hablando
+  var t0 = performance.now();
+  var rotY = 0, rotX = 0.35, nivel = 0, nivelObj = 0;
+  var arrastre = null, velY = 0;
+  var proy = new Array(N);
+  for (var q = 0; q < N; q++) proy[q] = { x: 0, y: 0, z: 0, p: 0 };
+
+  function suave(x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return 1 - Math.pow(1 - x, 3); }
+
+  function dibujar(ahora) {
+    var t = (ahora - t0) / 1000;
+    cx.globalCompositeOperation = 'source-over';
+    cx.fillStyle = '#000';
+    cx.fillRect(0, 0, W, H);
+
+    nivelObj = estado === 'hablando' ? 0.05 + 0.05 * (Math.sin(t * 9) * 0.5 + 0.5) * (0.6 + 0.4 * Math.sin(t * 3.1)) :
+               estado === 'escuchando' ? 0.03 + 0.012 * Math.sin(t * 3) :
+               estado === 'pensando' ? 0.02 + 0.02 * Math.sin(t * 6) : 0.012 * Math.sin(t * 1.2);
+    nivel += (nivelObj - nivel) * 0.12;
+
+    if (!arrastre) { velY += (0.0035 + (estado === 'pensando' ? 0.006 : 0) - velY) * 0.03; rotY += velY; }
+    var cy = Math.cos(rotY), sy = Math.sin(rotY), cxx = Math.cos(rotX), sxx = Math.sin(rotX);
+    var ox = W / 2, oy = H * 0.42;
+
+    var fin = true;
+    for (var i = 0; i < N; i++) {
+      var p = pts[i], pr = proy[i];
+      var prog = suave((t - 0.3 - p.delay) / 1.7);
+      p.p = prog; if (prog < 1) fin = false;
+      var onda = 1 + nivel * Math.sin(t * 5 + p.fase * 3) + 0.018 * Math.sin(t * 1.4 + p.fase);
+      var x = (p.sx + (p.x - p.sx) * prog) * onda;
+      var y = (p.sy + (p.y - p.sy) * prog) * onda;
+      var z = (p.sz + (p.z - p.sz) * prog) * onda;
+      var x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
+      var y2 = y * cxx - z1 * sxx, z2 = y * sxx + z1 * cxx;
+      var esc = 1 / (1 - z2 * 0.18);
+      pr.x = ox + x1 * R * esc; pr.y = oy + y2 * R * esc; pr.z = z2; pr.p = prog;
+    }
+
+    cx.globalCompositeOperation = 'lighter';
+    var brillo = estado === 'escuchando' ? 1.25 : 1;
+    cx.lineWidth = 0.7;
+    for (var e = 0; e < aristas.length; e++) {
+      var A = proy[aristas[e][0]], B = proy[aristas[e][1]];
+      var vis = Math.min(A.p, B.p); if (vis < 0.02) continue;
+      var prof = ((A.z + B.z) * 0.5 + 1) * 0.5;
+      var al = (0.08 + prof * 0.4) * vis * brillo;
+      cx.strokeStyle = 'rgba(' + (110 + prof * 120 | 0) + ',' + (185 + prof * 60 | 0) + ',255,' + al.toFixed(3) + ')';
+      cx.beginPath(); cx.moveTo(A.x, A.y); cx.lineTo(B.x, B.y); cx.stroke();
+    }
+    for (var i3 = 0; i3 < N; i3++) {
+      var P = proy[i3], q2 = pts[i3];
+      if (P.p < 0.01) continue;
+      var pf = (P.z + 1) * 0.5;
+      var rad = q2.tam * (0.7 + pf * 1.1) * (R / 150 + 0.5);
+      var a = (0.35 + pf * 0.65) * Math.min(1, P.p * 1.5) * brillo;
+      var g = cx.createRadialGradient(P.x, P.y, 0, P.x, P.y, rad * 3.2);
+      g.addColorStop(0, 'rgba(235,248,255,' + Math.min(1, a).toFixed(3) + ')');
+      g.addColorStop(0.35, 'rgba(110,190,255,' + (a * 0.5).toFixed(3) + ')');
+      g.addColorStop(1, 'rgba(60,140,255,0)');
+      cx.fillStyle = g;
+      cx.beginPath(); cx.arc(P.x, P.y, rad * 3.2, 0, 6.283); cx.fill();
+    }
+    // resplandor central
+    var gl = cx.createRadialGradient(ox, oy, 0, ox, oy, R * 1.25);
+    gl.addColorStop(0, 'rgba(120,190,255,' + (0.1 + nivel * 2).toFixed(3) + ')');
+    gl.addColorStop(1, 'rgba(0,0,0,0)');
+    cx.fillStyle = gl; cx.fillRect(0, 0, W, H);
+
+    requestAnimationFrame(dibujar);
+  }
+  requestAnimationFrame(dibujar);
+
+  // arrastrar para girar la esfera
+  cv.addEventListener('pointerdown', function (e) { arrastre = { x: e.clientX, y: e.clientY }; try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
+  cv.addEventListener('pointermove', function (e) {
+    if (!arrastre) return;
+    var dx = e.clientX - arrastre.x, dy = e.clientY - arrastre.y;
+    rotY += dx * 0.008; velY = dx * 0.0008; rotX = Math.max(-1.2, Math.min(1.2, rotX + dy * 0.006));
+    arrastre = { x: e.clientX, y: e.clientY };
+  });
+  function soltar() { arrastre = null; }
+  cv.addEventListener('pointerup', soltar); cv.addEventListener('pointercancel', soltar);
+
+  /* ---------- Interfaz ---------- */
+  var elTexto = document.getElementById('texto');
+  var elEstado = document.getElementById('estado');
+  var elEntrada = document.getElementById('entrada');
+  var btnMic = document.getElementById('mic');
+  function ponerEstado(s, etiqueta) { estado = s; elEstado.textContent = etiqueta || ''; btnMic.classList.toggle('on', s === 'escuchando'); }
+  function mostrar(txt) { elTexto.textContent = txt; elTexto.scrollTop = elTexto.scrollHeight; }
+
+  /* ---------- Voz de salida ---------- */
+  var voces = [], vozElegida = leer('nova_voz', '');
+  var velocidad = parseFloat(leer('nova_vel', '1.05')) || 1.05;
+  function puntuar(v) {
+    var s = 0, n = (v.name || '').toLowerCase();
+    if (/natural|neural|online|premium|enhanced|google/.test(n)) s += 5;
+    if (/^es[-_]mx|^es[-_]us|^es[-_]419/i.test(v.lang)) s += 2;
+    if (/^es/i.test(v.lang)) s += 10;
+    if (v.localService === false) s += 1;
+    return s;
+  }
+  function cargarVoces() {
+    if (!window.speechSynthesis) return;
+    voces = speechSynthesis.getVoices().filter(function (v) { return /^es/i.test(v.lang); });
+    voces.sort(function (a, b) { return puntuar(b) - puntuar(a); });
+    var sel = document.getElementById('vozSel');
+    sel.innerHTML = '';
+    if (!voces.length) { var o = document.createElement('option'); o.textContent = 'Voz del sistema'; sel.appendChild(o); return; }
+    voces.forEach(function (v) {
+      var o = document.createElement('option'); o.value = v.name; o.textContent = v.name + ' (' + v.lang + ')';
+      if (v.name === vozElegida) o.selected = true; sel.appendChild(o);
+    });
+  }
+  if (window.speechSynthesis) { cargarVoces(); speechSynthesis.onvoiceschanged = cargarVoces; }
+
+  var conversacion = false; // si está activo, Nova vuelve a escuchar tras hablar
+  function limpiarParaVoz(t) { return t.replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim(); }
+  function hablar(texto, alTerminar) {
+    if (!window.speechSynthesis) { if (alTerminar) alTerminar(); return; }
+    speechSynthesis.cancel();
+    var limpio = limpiarParaVoz(texto);
+    var frases = limpio.match(/[^.!?¡¿\n]+[.!?]*/g) || [limpio];
+    var elegida = null;
+    for (var i = 0; i < voces.length; i++) if (voces[i].name === vozElegida) elegida = voces[i];
+    if (!elegida && voces.length) elegida = voces[0];
+    var pendientes = frases.filter(function (f) { return f.trim(); });
+    if (!pendientes.length) { if (alTerminar) alTerminar(); return; }
+    ponerEstado('hablando', 'Nova está hablando');
+    pendientes.forEach(function (f, idx) {
+      var u = new SpeechSynthesisUtterance(f.trim());
+      if (elegida) { u.voice = elegida; u.lang = elegida.lang; } else u.lang = 'es-ES';
+      u.rate = velocidad; u.pitch = 1;
+      if (idx === pendientes.length - 1) {
+        u.onend = function () { ponerEstado('reposo', ''); if (alTerminar) alTerminar(); };
+        u.onerror = u.onend;
+      }
+      speechSynthesis.speak(u);
+    });
+  }
+
+  /* ---------- Reconocimiento de voz ---------- */
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+  var rec = null, escuchando = false;
+  function iniciarEscucha() {
+    if (!SR) { mostrar('Este navegador no permite escuchar la voz. Abre Nova en Chrome o escribe tu mensaje.'); return; }
+    if (escuchando) return;
+    if (window.speechSynthesis) speechSynthesis.cancel();
+    rec = new SR(); rec.lang = 'es-ES'; rec.interimResults = true; rec.continuous = false;
+    var final = '';
+    rec.onstart = function () { escuchando = true; ponerEstado('escuchando', 'Te escucho…'); };
+    rec.onresult = function (ev) {
+      var parcial = '';
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        if (ev.results[i].isFinal) final += ev.results[i][0].transcript; else parcial += ev.results[i][0].transcript;
+      }
+      mostrar(final + parcial);
+    };
+    rec.onerror = function (ev) {
+      escuchando = false; conversacion = false;
+      var msg = ev.error === 'not-allowed' ? 'Permite el micrófono para que Nova te escuche.' : ev.error === 'no-speech' ? 'No te oí. Toca el micrófono y habla.' : 'No pude escucharte. Intenta de nuevo.';
+      ponerEstado('reposo', ''); mostrar(msg);
+    };
+    rec.onend = function () {
+      escuchando = false;
+      if (final.trim()) enviar(final.trim());
+      else if (estado === 'escuchando') ponerEstado('reposo', '');
+    };
+    try { rec.start(); } catch (e) {}
+  }
+  btnMic.addEventListener('click', function () {
+    if (escuchando) { conversacion = false; try { rec.stop(); } catch (e) {} return; }
+    conversacion = true; iniciarEscucha();
+  });
+
+  /* ---------- Cerebro: Gemini + memoria ---------- */
+  function sistema() {
+    var hechos = memoria.hechos.length ? memoria.hechos.map(function (h) { return '- ' + h; }).join('\n') : '(todavía no sabes nada del usuario)';
+    return 'Eres Nova, una asistente de IA tipo Jarvis: cercana, inteligente y directa. Hablas en español natural, con frases cortas pensadas para ser dichas en voz alta. ' +
+      'No uses listas, asteriscos ni emojis. Responde en 1 a 3 frases salvo que te pidan más.\n' +
+      'Esto es lo que recuerdas del usuario:\n' + hechos + '\n' +
+      'Si el usuario te pide recordar algo o dice un dato personal duradero, añade al final de tu respuesta una línea con el formato [[RECORDAR: dato breve]]. ' +
+      'Si te pide olvidar algo, añade [[OLVIDAR: palabra clave]]. Esas líneas no se dicen en voz alta.\n' +
+      'No puedes controlar el teléfono del usuario ni abrir aplicaciones; si te lo piden, dilo con claridad.';
+  }
+  function procesarMarcas(texto) {
+    var cambios = false;
+    texto = texto.replace(/\[\[RECORDAR:\s*([^\]]+)\]\]/gi, function (_, h) { memoria.hechos.push(h.trim()); cambios = true; return ''; });
+    texto = texto.replace(/\[\[OLVIDAR:\s*([^\]]+)\]\]/gi, function (_, k) {
+      var kk = k.trim().toLowerCase();
+      memoria.hechos = memoria.hechos.filter(function (h) { return h.toLowerCase().indexOf(kk) === -1; }); cambios = true; return '';
+    });
+    if (cambios) guardarMemoria();
+    return texto.trim();
+  }
+
+  var ocupado = false;
+  function enviar(texto) {
+    if (ocupado || !texto) return;
+    var clave = leer('nova_clave', '');
+    mostrar(texto);
+    if (!clave) { abrirPanel(); mostrar('Pega tu clave de Gemini en Ajustes para que Nova pueda responder.'); ponerEstado('reposo', ''); return; }
+    ocupado = true; ponerEstado('pensando', 'Pensando…');
+    memoria.historial.push({ r: 'user', t: texto });
+    var contenido = memoria.historial.slice(-12).map(function (m) { return { role: m.r === 'user' ? 'user' : 'model', parts: [{ text: m.t }] }; });
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(clave);
+    fetch(url, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema() }] }, contents: contenido, generationConfig: { temperature: 0.8, maxOutputTokens: 400 } })
+    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+    .then(function (res) {
+      if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || 'Error de Gemini');
+      var parts = res.j.candidates && res.j.candidates[0] && res.j.candidates[0].content && res.j.candidates[0].content.parts;
+      var bruto = parts ? parts.map(function (p) { return p.text || ''; }).join('') : '';
+      var resp = procesarMarcas(bruto) || 'No supe qué responder. ¿Me lo repites?';
+      memoria.historial.push({ r: 'model', t: resp }); guardarMemoria();
+      mostrar(resp); ocupado = false;
+      hablar(resp, function () { if (conversacion) iniciarEscucha(); });
+    }).catch(function (err) {
+      ocupado = false; conversacion = false; memoria.historial.pop(); ponerEstado('reposo', '');
+      var m = String(err.message || err);
+      mostrar(/API key|invalid|permission/i.test(m) ? 'La clave de Gemini no funciona. Revísala en Ajustes.' : 'No pude conectar con Gemini: ' + m);
+    });
+  }
+  elEntrada.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter') { var v = elEntrada.value.trim(); elEntrada.value = ''; conversacion = false; enviar(v); }
+  });
+
+  /* ---------- Ajustes ---------- */
+  var panel = document.getElementById('panel');
+  function pintarRecuerdos() {
+    document.getElementById('recuerdos').textContent = memoria.hechos.length ? memoria.hechos.map(function (h) { return '• ' + h; }).join('\n') : 'Todavía nada.';
+  }
+  function abrirPanel() {
+    document.getElementById('clave').value = leer('nova_clave', '');
+    document.getElementById('velocidad').value = velocidad;
+    cargarVoces(); pintarRecuerdos(); panel.classList.add('abierto');
+  }
+  document.getElementById('abrirAjustes').addEventListener('click', abrirPanel);
+  document.getElementById('cerrar').addEventListener('click', function () { panel.classList.remove('abierto'); });
+  document.getElementById('guardar').addEventListener('click', function () {
+    guardar('nova_clave', document.getElementById('clave').value.trim());
+    var sel = document.getElementById('vozSel'); if (sel.value) { vozElegida = sel.value; guardar('nova_voz', vozElegida); }
+    velocidad = parseFloat(document.getElementById('velocidad').value) || 1.05; guardar('nova_vel', String(velocidad));
+    panel.classList.remove('abierto');
+    mostrar('Listo. Toca el micrófono y háblame.');
+  });
+  document.getElementById('borrarMem').addEventListener('click', function () {
+    memoria = { hechos: [], historial: [] }; guardarMemoria(); pintarRecuerdos();
+  });
+
+  /* ---------- Inicio ---------- */
+  mostrar(leer('nova_clave', '') ? 'Toca el micrófono y háblame.' : 'Abre Ajustes y pega tu clave de Gemini para empezar.');
+
+  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
 })();
 </script>
-<script>if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('sw.js').catch(function(){});});}</script>
 </body>
 </html>
