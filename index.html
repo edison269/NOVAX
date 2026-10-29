@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" type="image/png" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
 <title>Nova</title>
 <style>
   :root { --bg:#000; --azul:#5fb4ff; --blanco:#eaf6ff; --tenue:#6f8fb0; }
@@ -33,6 +36,8 @@
   #mic .ico { fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; }
   #mic.on { color:var(--blanco); filter:drop-shadow(0 0 14px rgba(170,220,255,.95)); animation:latido 1.1s ease-in-out infinite; }
   #mic.on .hex { fill:rgba(160,215,255,.28); }
+  #accion { background:rgba(95,180,255,.14); border:1px solid var(--azul); color:var(--blanco); font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.14em; text-transform:uppercase; font-size:12px; padding:10px 18px; box-shadow:0 0 14px rgba(95,180,255,.5); }
+  #accion[hidden] { display:none; }
   .opciones { display:flex; gap:26px; justify-content:center; }
   .opciones button { background:transparent; border:0; border-bottom:1px solid rgba(95,180,255,.35); color:var(--tenue); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; padding:6px 2px; }
   .opciones button.act { color:var(--blanco); border-color:var(--azul); }
@@ -63,6 +68,7 @@
 <div class="bottom">
   <div id="texto" aria-live="polite"></div>
   <div id="estado"></div>
+  <button id="accion" hidden></button>
   <div class="fila">
     <div class="terminal">
       <span class="prompt">&gt;</span>
@@ -388,7 +394,9 @@
       'Esto es lo que recuerdas del usuario:\n' + hechos + '\n' +
       'Si el usuario te pide recordar algo o dice un dato personal duradero, añade al final de tu respuesta una línea con el formato [[RECORDAR: dato breve]]. ' +
       'Si te pide olvidar algo, añade [[OLVIDAR: palabra clave]]. Esas líneas no se dicen en voz alta.\n' +
-      'No puedes controlar el teléfono del usuario ni abrir aplicaciones; si te lo piden, dilo con claridad.';
+      'No puedes controlar el teléfono por tu cuenta ni leer sus mensajes. Pero SÍ puedes abrir cosas: si el usuario te pide abrir algo, responde en una frase corta y añade al final UNA línea con el formato [[ABRIR: tipo|dato]] usando solo estos tipos: ' +
+      'youtube|qué buscar, maps|lugar o dirección, llamar|número de teléfono, whatsapp|número con código de país|mensaje (el mensaje es opcional), web|dirección de la página. ' +
+      'Esa línea no se dice en voz alta. Si falta un dato, por ejemplo el número, pídelo en vez de inventarlo.';
   }
   function procesarMarcas(texto) {
     var cambios = false;
@@ -397,13 +405,39 @@
       var kk = k.trim().toLowerCase();
       memoria.hechos = memoria.hechos.filter(function (h) { return h.toLowerCase().indexOf(kk) === -1; }); cambios = true; return '';
     });
+    texto = texto.replace(/\[\[ABRIR:\s*([^\]]+)\]\]/gi, function (_, d) {
+      var p = d.split('|').map(function (x) { return x.trim(); });
+      accionPendiente = { tipo: (p[0] || '').toLowerCase(), dato: p[1] || '', extra: p[2] || '' }; return '';
+    });
     if (cambios) guardarMemoria();
     return texto.trim();
   }
 
   var ocupado = false;
+  var accionPendiente = null;
+  var btnAccion = document.getElementById('accion');
+  var etiquetas = { youtube: 'YouTube', maps: 'Maps', llamar: 'llamada', whatsapp: 'WhatsApp', web: 'página' };
+  function urlAccion(a) {
+    if (!a || !a.dato) return '';
+    var d = a.dato;
+    if (a.tipo === 'youtube') return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(d);
+    if (a.tipo === 'maps') return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(d);
+    if (a.tipo === 'llamar') { var n = d.replace(/[^\d+]/g, ''); return n ? 'tel:' + n : ''; }
+    if (a.tipo === 'whatsapp') { var w = d.replace(/\D/g, ''); return w ? 'https://wa.me/' + w + (a.extra ? '?text=' + encodeURIComponent(a.extra) : '') : ''; }
+    if (a.tipo === 'web') return /^https?:\/\//i.test(d) ? d : 'https://' + d;
+    return '';
+  }
+  function prepararAccion(a) {
+    var u = urlAccion(a);
+    if (!u) { btnAccion.hidden = true; return ''; }
+    btnAccion.textContent = 'Abrir ' + (etiquetas[a.tipo] || '') + ' →';
+    btnAccion.onclick = function () { window.location.href = u; };
+    btnAccion.hidden = false;
+    return u;
+  }
   function enviar(texto) {
     if (ocupado || !texto) return;
+    btnAccion.hidden = true; accionPendiente = null;
     var clave = leer('nova_clave', '');
     mostrar(texto);
     if (!clave) { abrirPanel(); mostrar('Pega tu clave de Gemini en Ajustes para que Nova pueda responder.'); ponerEstado('reposo', ''); return; }
@@ -419,10 +453,15 @@
       if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || 'Error de Gemini');
       var parts = res.j.candidates && res.j.candidates[0] && res.j.candidates[0].content && res.j.candidates[0].content.parts;
       var bruto = parts ? parts.map(function (p) { return p.text || ''; }).join('') : '';
-      var resp = procesarMarcas(bruto) || 'No supe qué responder. ¿Me lo repites?';
+      var resp = procesarMarcas(bruto) || (accionPendiente ? 'Listo.' : 'No supe qué responder. ¿Me lo repites?');
       memoria.historial.push({ r: 'model', t: resp }); guardarMemoria();
       mostrar(resp); ocupado = false;
-      hablar(resp, function () { if (conversacion) iniciarEscucha(); });
+      var acc = accionPendiente; accionPendiente = null;
+      var urlAbrir = prepararAccion(acc);
+      hablar(resp, function () {
+        if (urlAbrir) { conversacion = false; window.location.href = urlAbrir; }
+        else if (conversacion) iniciarEscucha();
+      });
     }).catch(function (err) {
       ocupado = false; conversacion = false; memoria.historial.pop(); ponerEstado('reposo', '');
       var m = String(err.message || err);
