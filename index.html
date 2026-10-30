@@ -89,39 +89,70 @@ async function buscarModelo(clave) {
   set("nova_modelo", ok[0]);
   return ok[0];
 }
-async function llamar(modelo, clave) {
-  const r = await fetch(API + "models/" + modelo + ":generateContent", {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "x-goog-api-key": clave },
-    body: JSON.stringify({ systemInstruction: { parts: [{ text: SISTEMA }] }, contents: memoria.slice(-30) })
-  });
-  const d = await r.json();
-  return { r, d };
+async function llamar(modelo, clave, onTexto) {
+  const cuerpo = cfg => JSON.stringify(Object.assign({ systemInstruction: { parts: [{ text: SISTEMA }] }, contents: memoria.slice(-20) }, cfg ? { generationConfig: cfg } : {}));
+  // Poco pensamiento y texto corto = más rápido. Si el modelo no acepta algo, prueba más simple.
+  const intentos = [{ maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 0 } }, { maxOutputTokens: 400, thinkingConfig: { thinkingLevel: "minimal" } }, { maxOutputTokens: 400 }, null];
+  let r;
+  for (const cfg of intentos) {
+    r = await fetch(API + "models/" + modelo + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo(cfg) });
+    if (r.status !== 400) break;
+  }
+  if (!r.ok) { let d = {}; try { d = await r.json(); } catch (e) {} return { r, d }; }
+  const lector = r.body.getReader(), dec = new TextDecoder();
+  let buf = "", texto = "";
+  for (;;) {
+    const { done, value } = await lector.read();
+    if (done) break;
+    buf += dec.decode(value, { stream: true });
+    const lineas = buf.split("\n"); buf = lineas.pop();
+    for (const l of lineas) {
+      if (!l.startsWith("data:")) continue;
+      try {
+        const j = JSON.parse(l.slice(5));
+        const parte = (j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts || []).map(p => p.text || "").join("");
+        if (parte) { texto += parte; onTexto(parte, texto); }
+      } catch (e) {}
+    }
+  }
+  return { r, texto };
 }
-async function preguntar(texto) {
+async function preguntar(texto, onTexto) {
   const clave = get("nova_clave", "");
   if (!clave) { abrirAjustes(); throw new Error("Falta tu clave de Gemini. Ponla en Ajustes."); }
   memoria.push({ role: "user", parts: [{ text: texto }] });
   try {
     let modelo = get("nova_modelo", MODELO);
-    let { r, d } = await llamar(modelo, clave);
-    if (!r.ok && (r.status === 404 || /no longer available|not found|deprecated|not supported/i.test((d.error && d.error.message) || ""))) {
+    let res = await llamar(modelo, clave, onTexto);
+    if (!res.r.ok && (res.r.status === 404 || /no longer available|not found|deprecated|not supported/i.test((res.d && res.d.error && res.d.error.message) || ""))) {
       modelo = await buscarModelo(clave);
-      ({ r, d } = await llamar(modelo, clave));
+      res = await llamar(modelo, clave, onTexto);
     }
-    if (!r.ok) throw new Error((d.error && d.error.message) || ("Error " + r.status));
-    const resp = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts.map(p => p.text || "").join("")) || "No obtuve respuesta.";
+    if (!res.r.ok) throw new Error((res.d && res.d.error && res.d.error.message) || ("Error " + res.r.status));
+    const resp = res.texto || "No obtuve respuesta.";
     memoria.push({ role: "model", parts: [{ text: resp }] });
     guardarMem();
     return resp;
   } catch (e) { memoria.pop(); throw e; }
 }
 
+let estado = "idle", pendientes = 0;
 async function enviar(texto) {
   texto = (texto || "").trim(); if (!texto) return;
-  $("msg").textContent = "…";
-  try { const r = await preguntar(texto); $("msg").textContent = r; hablar(r); }
-  catch (e) { $("msg").textContent = "No pude conectar con Gemini: " + e.message; }
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+  pendientes = 0; estado = "piensa"; $("msg").textContent = "…";
+  let cola = "";
+  try {
+    const r = await preguntar(texto, (parte, todo) => {
+      $("msg").textContent = todo;
+      cola += parte;
+      let m;
+      while ((m = cola.match(/^[^.!?\n]+[.!?\n]+/))) { decir(m[0]); cola = cola.slice(m[0].length); }
+    });
+    if (cola.trim()) decir(cola);
+    $("msg").textContent = r;
+  } catch (e) { $("msg").textContent = "No pude conectar con Gemini: " + e.message; }
+  estado = pendientes ? "habla" : "idle";
 }
 
 // ====== VOZ ======
@@ -131,21 +162,24 @@ function cargarVoz() {
   vozEs = v.find(x => /natural|neural|google|online/i.test(x.name)) || v[0] || null;
 }
 if ("speechSynthesis" in window) { cargarVoz(); speechSynthesis.onvoiceschanged = cargarVoz; }
-function hablar(t) {
-  if (!("speechSynthesis" in window)) return;
-  speechSynthesis.cancel();
-  const partes = t.replace(/[*_#`]/g, "").match(/[^.!?\n]+[.!?]?/g) || [t];
-  partes.forEach(p => { const u = new SpeechSynthesisUtterance(p.trim()); u.lang = "es-ES"; if (vozEs) u.voice = vozEs; u.rate = 1.03; u.pitch = 1; speechSynthesis.speak(u); });
+function decir(t) {
+  t = t.replace(/[*_#`]/g, "").trim();
+  if (!t || !("speechSynthesis" in window)) return;
+  const u = new SpeechSynthesisUtterance(t); u.lang = "es-ES"; if (vozEs) u.voice = vozEs; u.rate = 1.05;
+  pendientes++;
+  u.onstart = () => { estado = "habla"; };
+  u.onend = u.onerror = () => { pendientes = Math.max(0, pendientes - 1); if (!pendientes && estado === "habla") estado = "idle"; };
+  speechSynthesis.speak(u);
 }
 const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
 let rec = null, escuchando = false;
 $("mic").onclick = () => {
   if (!SR) { $("msg").textContent = "Este navegador no permite voz. Usa Chrome."; return; }
   if (escuchando && rec) { rec.stop(); return; }
-  speechSynthesis.cancel();
+  speechSynthesis.cancel(); pendientes = 0;
   rec = new SR(); rec.lang = "es-ES"; rec.interimResults = false;
-  rec.onstart = () => { escuchando = true; $("mic").classList.add("on"); };
-  rec.onend = () => { escuchando = false; $("mic").classList.remove("on"); };
+  rec.onstart = () => { escuchando = true; estado = "escucha"; $("mic").classList.add("on"); };
+  rec.onend = () => { escuchando = false; if (estado === "escucha") estado = "idle"; $("mic").classList.remove("on"); };
   rec.onerror = e => { $("msg").textContent = "Micrófono: " + e.error; };
   rec.onresult = e => { const t = e.results[0][0].transcript; $("msg").textContent = "> " + t; enviar(t); };
   rec.start();
@@ -179,41 +213,53 @@ for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
   const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, dz = pts[i].z - pts[j].z;
   if (dx * dx + dy * dy + dz * dz < .16) lineas.push([i, j]);
 }
-let ang = 0, t0 = performance.now(), arrastre = 0, giroExtra = 0;
+let ang = 0, t0 = performance.now(), giroExtra = 0, vel = 1;
 
 function frame(now) {
   const t = Math.max(0, (now - t0) / 1000);
-  const build = Math.min(1, t / 2.4); // animación de creación solo al abrir
-  ang += .004 + giroExtra; giroExtra *= .95;
+  const build = Math.min(1, t / 2.4); // se arma solo al abrir
+  const velObj = estado === "piensa" ? 3.5 : estado === "habla" ? 2 : estado === "escucha" ? 1.5 : 1;
+  vel += (velObj - vel) * .05;
+  ang += .010 * vel + giroExtra; giroExtra *= .95;
+  const angX = .35 + Math.sin(t * .35) * .3;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
-  const R = Math.min(W, H) * .46, cx = W / 2, cy = H / 2, ca = Math.cos(ang), sa = Math.sin(ang);
-  const P = pts.map(p => {
-    const e = Math.max(0, Math.min(1, (build - p.d) / .4));
-    const s = e * e * (3 - 2 * e);
-    const x = p.x * ca + p.z * sa, z = -p.x * sa + p.z * ca, f = 1 / (1.8 - z * .5);
-    return { X: cx + x * R * s * f * 1.5, Y: cy + p.y * R * s * f * 1.5, z, s };
+  const R = Math.min(W, H) * .46, cx = W / 2, cy = H / 2;
+  const ca = Math.cos(ang), sa = Math.sin(ang), cb = Math.cos(angX), sb = Math.sin(angX);
+  const activo = estado !== "idle" ? 2.2 : 1;
+  const P = pts.map((p, i) => {
+    const e = Math.max(0, Math.min(1, (build - p.d) / .4)), s = e * e * (3 - 2 * e);
+    const amp = estado === "escucha" ? .16 : estado === "habla" ? .10 : estado === "piensa" ? .07 : .03;
+    const frec = estado === "escucha" ? 5 : estado === "habla" ? 3.5 : 1.4;
+    const w = 1 + Math.sin(t * frec + p.d * 14 + i * .9) * amp + Math.sin(t * frec * .6 + i * .37) * amp * .6 + (estado === "escucha" ? .06 * Math.sin(t * 3.2) : 0);
+    const px = p.x * w, py = p.y * w, pz = p.z * w;
+    const x1 = px * ca + pz * sa, z1 = -px * sa + pz * ca;
+    const y2 = py * cb - z1 * sb, z2 = py * sb + z1 * cb, f = 1 / (1.8 - z2 * .5);
+    return { X: cx + x1 * R * s * f * 1.5, Y: cy + y2 * R * s * f * 1.5, z: z2, s, tw: .7 + .3 * Math.sin(t * 2.4 * activo + i * 1.7) };
   });
   ctx.globalCompositeOperation = "lighter";
   ctx.lineWidth = .7;
-  for (const [i, j] of lineas) {
-    const a = P[i], b = P[j], o = Math.min(a.s, b.s) * (.12 + .25 * ((a.z + b.z + 2) / 4));
+  for (let k = 0; k < lineas.length; k++) {
+    const [i, j] = lineas[k], a = P[i], b = P[j];
+    const o = Math.min(a.s, b.s) * (.12 + .25 * ((a.z + b.z + 2) / 4)) * (.75 + .35 * Math.sin(t * 1.6 * activo + k * .13));
     if (o < .01) continue;
     ctx.strokeStyle = "rgba(140,200,255," + o + ")"; ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.stroke();
   }
   for (const p of P) {
     if (p.s < .01) continue;
-    const r = Math.max(0.5, 1.6 + (p.z + 1) * 1.6) * p.s, g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, r * 4);
-    g.addColorStop(0, "rgba(220,240,255," + .9 * p.s + ")"); g.addColorStop(.3, "rgba(70,150,255," + .45 * p.s + ")"); g.addColorStop(1, "rgba(30,90,255,0)");
+    const r = Math.max(0.5, 1.6 + (p.z + 1) * 1.6) * p.s * (.85 + .3 * p.tw), g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, r * 4);
+    g.addColorStop(0, "rgba(220,240,255," + .9 * p.s * p.tw + ")"); g.addColorStop(.3, "rgba(70,150,255," + .45 * p.s * p.tw + ")"); g.addColorStop(1, "rgba(30,90,255,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.X, p.Y, r * 4, 0, 6.3); ctx.fill();
   }
-  // núcleo: diamante brillante en el centro
-  const pulso = (1 + .06 * Math.sin(t * 2)) * build * brillo, dm = R * .13 * pulso;
+  // núcleo: diamante que gira y late
+  const ritmo = estado === "piensa" ? 7 : estado === "habla" ? 4 : 2;
+  const pulso = (1 + .08 * Math.sin(t * ritmo)) * build * brillo, dm = R * .13 * pulso;
+  const ancho = dm * (.3 + .7 * Math.abs(Math.cos(t * .9)));
   const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, dm * 5);
   halo.addColorStop(0, "rgba(150,210,255," + .55 * Math.min(1, brillo) + ")"); halo.addColorStop(1, "rgba(40,110,255,0)");
   ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, dm * 5, 0, 6.3); ctx.fill();
   ctx.globalCompositeOperation = "source-over";
   ctx.fillStyle = "#fff"; ctx.shadowColor = "#7cc0ff"; ctx.shadowBlur = 25 * brillo;
-  ctx.beginPath(); ctx.moveTo(cx, cy - dm * 1.5); ctx.lineTo(cx + dm, cy); ctx.lineTo(cx, cy + dm * 1.5); ctx.lineTo(cx - dm, cy); ctx.closePath(); ctx.fill();
+  ctx.beginPath(); ctx.moveTo(cx, cy - dm * 1.5); ctx.lineTo(cx + ancho, cy); ctx.lineTo(cx, cy + dm * 1.5); ctx.lineTo(cx - ancho, cy); ctx.closePath(); ctx.fill();
   ctx.shadowBlur = 0;
   requestAnimationFrame(frame);
 }
