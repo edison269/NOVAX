@@ -73,22 +73,48 @@ let memoria = []; try { memoria = JSON.parse(get("nova_mem", "[]")); } catch (e)
 const guardarMem = () => set("nova_mem", JSON.stringify(memoria.slice(-30)));
 
 // ====== GEMINI ======
-async function preguntar(texto) {
-  const clave = get("nova_clave", "");
-  if (!clave) { abrirAjustes(); throw new Error("Falta tu clave de Gemini. Ponla en Ajustes."); }
-  memoria.push({ role: "user", parts: [{ text: texto }] });
-  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODELO + ":generateContent";
-  const r = await fetch(url, {
+const API = "https://generativelanguage.googleapis.com/v1beta/";
+// Si el modelo se retira, Nova busca sola uno "flash" disponible y lo recuerda.
+async function buscarModelo(clave) {
+  const r = await fetch(API + "models?pageSize=200", { headers: { "x-goog-api-key": clave } });
+  const d = await r.json();
+  if (!r.ok) throw new Error((d.error && d.error.message) || ("Error " + r.status));
+  const ok = (d.models || [])
+    .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+    .map(m => m.name.replace("models/", ""))
+    .filter(n => /flash/i.test(n) && !/(lite|image|tts|live|audio|thinking|exp|preview|embed|vision)/i.test(n));
+  const ver = n => { const m = n.match(/(\d+)(?:\.(\d+))?/); return m ? +m[1] * 100 + (+m[2] || 0) : 0; };
+  ok.sort((x, y) => ver(y) - ver(x));
+  if (!ok.length) throw new Error("No encontré ningún modelo disponible para tu clave.");
+  set("nova_modelo", ok[0]);
+  return ok[0];
+}
+async function llamar(modelo, clave) {
+  const r = await fetch(API + "models/" + modelo + ":generateContent", {
     method: "POST",
     headers: { "Content-Type": "application/json", "x-goog-api-key": clave },
     body: JSON.stringify({ systemInstruction: { parts: [{ text: SISTEMA }] }, contents: memoria.slice(-30) })
   });
   const d = await r.json();
-  if (!r.ok) { memoria.pop(); throw new Error((d.error && d.error.message) || ("Error " + r.status)); }
-  const resp = (d.candidates && d.candidates[0] && d.candidates[0].content.parts.map(p => p.text || "").join("")) || "No obtuve respuesta.";
-  memoria.push({ role: "model", parts: [{ text: resp }] });
-  guardarMem();
-  return resp;
+  return { r, d };
+}
+async function preguntar(texto) {
+  const clave = get("nova_clave", "");
+  if (!clave) { abrirAjustes(); throw new Error("Falta tu clave de Gemini. Ponla en Ajustes."); }
+  memoria.push({ role: "user", parts: [{ text: texto }] });
+  try {
+    let modelo = get("nova_modelo", MODELO);
+    let { r, d } = await llamar(modelo, clave);
+    if (!r.ok && (r.status === 404 || /no longer available|not found|deprecated|not supported/i.test((d.error && d.error.message) || ""))) {
+      modelo = await buscarModelo(clave);
+      ({ r, d } = await llamar(modelo, clave));
+    }
+    if (!r.ok) throw new Error((d.error && d.error.message) || ("Error " + r.status));
+    const resp = (d.candidates && d.candidates[0] && d.candidates[0].content && d.candidates[0].content.parts.map(p => p.text || "").join("")) || "No obtuve respuesta.";
+    memoria.push({ role: "model", parts: [{ text: resp }] });
+    guardarMem();
+    return resp;
+  } catch (e) { memoria.pop(); throw e; }
 }
 
 async function enviar(texto) {
@@ -206,7 +232,11 @@ cv.addEventListener("pointermove", e => { if (timer && Math.abs(e.clientX - ox) 
 ["pointerup", "pointerleave", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => { if (timer) { clearTimeout(timer); timer = null; } }));
 
 // Instalable desde Chrome
-if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
+if ("serviceWorker" in navigator) {
+  navigator.serviceWorker.register("sw.js", { updateViaCache: "none" }).then(reg => reg.update()).catch(() => {});
+  let recargado = false;
+  navigator.serviceWorker.addEventListener("controllerchange", () => { if (recargado) return; recargado = true; location.reload(); });
+}
 </script>
 </body>
 </html>

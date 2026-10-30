@@ -1,5 +1,5 @@
 // Nova service worker v3: siempre intenta cargar lo más nuevo de internet
-const CACHE = "nova-v3";
+const CACHE = "nova-v4";
 
 self.addEventListener("install", () => self.skipWaiting());
 
