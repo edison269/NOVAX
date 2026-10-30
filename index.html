@@ -1,514 +1,210 @@
 <!DOCTYPE html>
 <html lang="es">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
-<link rel="manifest" href="manifest.json">
-<link rel="icon" type="image/png" href="icon-192.png">
-<link rel="apple-touch-icon" href="icon-192.png">
 <title>Nova</title>
 <style>
-  :root { --bg:#000; --azul:#5fb4ff; --blanco:#eaf6ff; --tenue:#6f8fb0; }
-  * { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
-  html, body { margin:0; height:100%; background:var(--bg); color:var(--blanco); font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif; overflow:hidden; }
-  canvas { position:fixed; inset:0; width:100%; height:100%; display:block; }
-  .top { position:fixed; top:0; left:0; right:0; padding:calc(env(safe-area-inset-top,0px) + 14px) 16px 0; display:flex; justify-content:space-between; align-items:center; z-index:5; }
-  .marca { letter-spacing:.32em; font-weight:300; font-size:15px; color:var(--azul); text-shadow:0 0 12px rgba(95,180,255,.7); }
-  .btn-ico { background:rgba(95,180,255,.08); border:1px solid rgba(95,180,255,.35); color:var(--azul); width:40px; height:40px; border-radius:50%; font-size:18px; display:grid; place-items:center; }
-  .iconos { display:flex; gap:8px; }
-  .bottom { position:fixed; left:0; right:0; bottom:0; padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 18px); z-index:5; display:flex; flex-direction:column; align-items:center; gap:12px; }
-  #texto { min-height:3.6em; max-height:7.5em; overflow:auto; width:100%; max-width:560px; text-align:left; font-family:ui-monospace,"SFMono-Regular",Menlo,Consolas,monospace; font-size:14px; letter-spacing:.02em; line-height:1.55; color:#bfe6ff; padding:10px 14px; border-left:2px solid rgba(95,180,255,.65); background:linear-gradient(90deg, rgba(95,180,255,.12), rgba(95,180,255,0)); text-shadow:0 0 10px rgba(95,180,255,.4); }
-  #estado { font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; letter-spacing:.28em; text-transform:uppercase; color:var(--azul); height:1.2em; opacity:.85; }
-  .fila { display:flex; flex-direction:column; align-items:center; gap:14px; width:100%; max-width:560px; }
-  .terminal { width:100%; min-width:0; display:none; align-items:center; gap:8px; height:48px; padding:0 4px 0 12px; border-left:1px solid rgba(95,180,255,.6); border-bottom:1px solid rgba(95,180,255,.6); background:linear-gradient(0deg, rgba(95,180,255,.14), rgba(95,180,255,0)); box-shadow:0 8px 14px -10px rgba(95,180,255,.8); }
-  .fila.teclado .terminal { display:flex; }
-  .terminal:focus-within { border-color:var(--blanco); }
-  .prompt { color:var(--azul); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; }
-  #entrada { flex:1; min-width:0; background:transparent; border:0; padding:0; color:var(--blanco); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:16px; outline:none; }
-  #entrada::placeholder { color:var(--tenue); }
-  #enviar { flex:none; width:40px; height:40px; padding:0; background:transparent; border:0; color:var(--azul); display:grid; place-items:center; }
-  #enviar svg { width:22px; height:22px; fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; stroke-linejoin:round; }
-  button:focus-visible { outline:2px solid var(--blanco); outline-offset:2px; }
-  #mic { position:relative; width:84px; height:84px; flex:none; padding:0; background:transparent; border:0; color:var(--azul); filter:drop-shadow(0 0 8px rgba(95,180,255,.7)); }
-  #mic svg { width:100%; height:100%; display:block; }
-  #mic .hex { fill:rgba(95,180,255,.1); stroke:currentColor; stroke-width:2; stroke-linejoin:round; }
-  #mic .ico { fill:none; stroke:currentColor; stroke-width:2.4; stroke-linecap:round; }
-  #mic.on { color:var(--blanco); filter:drop-shadow(0 0 14px rgba(170,220,255,.95)); animation:latido 1.1s ease-in-out infinite; }
-  #mic.on .hex { fill:rgba(160,215,255,.28); }
-  #accion { background:rgba(95,180,255,.14); border:1px solid var(--azul); color:var(--blanco); font-family:ui-monospace,Menlo,Consolas,monospace; letter-spacing:.14em; text-transform:uppercase; font-size:12px; padding:10px 18px; box-shadow:0 0 14px rgba(95,180,255,.5); }
-  #accion[hidden] { display:none; }
-  .opciones { display:flex; gap:26px; justify-content:center; }
-  .opciones button { background:transparent; border:0; border-bottom:1px solid rgba(95,180,255,.35); color:var(--tenue); font-family:ui-monospace,Menlo,Consolas,monospace; font-size:11px; letter-spacing:.22em; text-transform:uppercase; padding:6px 2px; }
-  .opciones button.act { color:var(--blanco); border-color:var(--azul); }
-  @keyframes latido { 50% { transform:scale(1.08); } }
-  @media (prefers-reduced-motion: reduce) { #mic.on { animation:none; } }
-  .panel { position:fixed; inset:0; background:rgba(0,0,0,.88); z-index:10; display:none; align-items:center; justify-content:center; padding:20px; }
-  .panel.abierto { display:flex; }
-  .caja { width:100%; max-width:440px; background:#050b14; border:1px solid rgba(95,180,255,.4); border-radius:16px; padding:20px; display:flex; flex-direction:column; gap:12px; max-height:90vh; overflow:auto; }
-  .caja h2 { margin:0; font-size:18px; font-weight:500; color:var(--azul); }
-  .caja p, .caja label { margin:0; font-size:14px; line-height:1.5; color:#b9d3ea; }
-  .caja input, .caja select { width:100%; background:#02060c; border:1px solid rgba(95,180,255,.35); border-radius:10px; padding:11px 12px; color:var(--blanco); font-size:15px; }
-  .caja button { border-radius:10px; padding:12px; font-size:15px; border:1px solid rgba(95,180,255,.5); background:rgba(95,180,255,.14); color:var(--blanco); }
-  .caja button.peligro { border-color:rgba(255,120,120,.5); background:rgba(255,120,120,.1); }
-  #recuerdos { font-size:13px; color:#9fbad3; white-space:pre-wrap; background:#02060c; border-radius:10px; padding:10px; max-height:140px; overflow:auto; }
-  @media (prefers-reduced-motion: reduce) { * { scroll-behavior:auto; } }
+:root{--azul:#4aa8ff;--fondo:#000;--brillo:1}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--fondo);color:#cfe6ff;font-family:ui-monospace,Menlo,Consolas,monospace;overflow:hidden}
+#app{height:100%;display:flex;flex-direction:column;padding:env(safe-area-inset-top) 18px env(safe-area-inset-bottom)}
+header{display:flex;justify-content:space-between;align-items:center;padding:14px 0}
+header b{letter-spacing:.5em;font-weight:400;color:var(--azul)}
+#gear{width:46px;height:46px;border-radius:50%;border:1px solid #17304d;background:#050b14;color:var(--azul);font-size:22px}
+#stage{flex:1;position:relative;min-height:0}
+canvas{width:100%;height:100%;display:block;touch-action:none}
+#msg{max-height:24vh;overflow:auto;border-left:2px solid #2a5a8c;padding:8px 12px;margin:6px 0;font-size:15px;line-height:1.45;background:linear-gradient(90deg,#06101c,transparent);white-space:pre-wrap}
+#msg:empty{display:none}
+#kb{display:none;border:1px solid #cfe6ff;border-right:0;margin:8px 0;background:#050b14}
+#kb.on{display:flex}
+#kb span{padding:14px 10px;color:var(--azul)}
+#kb input{flex:1;background:none;border:0;color:#cfe6ff;font:inherit;font-size:16px;outline:none}
+#kb button{background:none;border:0;color:var(--azul);font-size:26px;padding:0 16px}
+#mic{align-self:center;width:84px;height:92px;border:0;background:none;padding:0;margin:6px 0}
+#mic svg{width:100%;height:100%;filter:drop-shadow(0 0 10px #2d8cff)}
+#mic.on svg{filter:drop-shadow(0 0 18px #9fd0ff)}
+nav{display:flex;justify-content:space-around;padding:10px 0 16px}
+nav button{background:none;border:0;border-bottom:1px solid #1d3550;color:#6f8aa8;font:inherit;letter-spacing:.3em;font-size:13px;padding:8px 14px}
+nav button.on{color:#e6f2ff;border-color:var(--azul)}
+#ajustes{position:fixed;inset:0;background:#000d;display:none;align-items:center;justify-content:center;padding:24px;z-index:5}
+#ajustes.on{display:flex}
+#panel{width:100%;max-width:380px;background:#06101c;border:1px solid #17304d;padding:20px}
+#panel label{display:block;margin:14px 0 6px;font-size:13px;color:#8fb4da}
+#panel input[type=password],#panel input[type=text]{width:100%;padding:10px;background:#000;border:1px solid #234;color:#cfe6ff;font:inherit}
+#panel input[type=range]{width:100%}
+#panel button{margin-top:18px;width:100%;padding:12px;background:#0b2036;border:1px solid var(--azul);color:#e6f2ff;font:inherit}
+small{display:block;margin-top:12px;color:#6f8aa8;line-height:1.4}
 </style>
 </head>
 <body>
-<canvas id="lienzo" aria-label="Esfera de Nova"></canvas>
-
-<div class="top">
-  <div class="marca">NOVA</div>
-  <div class="iconos">
-    <button class="btn-ico" id="abrirAjustes" aria-label="Ajustes">⚙</button>
-  </div>
+<div id="app">
+  <header><b>NOVA</b><button id="gear" aria-label="Ajustes">⚙</button></header>
+  <div id="stage"><canvas id="c"></canvas></div>
+  <div id="msg"></div>
+  <div id="kb"><span>&gt;</span><input id="txt" placeholder="Escribe aquí…" autocomplete="off"><button id="send" aria-label="Enviar">›</button></div>
+  <button id="mic" aria-label="Hablar"><svg viewBox="0 0 100 110" fill="none" stroke="#4aa8ff" stroke-width="4" stroke-linejoin="round"><path d="M50 4 94 29v52L50 106 6 81V29z"/><rect x="39" y="26" width="22" height="38" rx="11"/><path d="M30 54a20 20 0 0 0 40 0M50 74v14M38 88h24"/></svg></button>
+  <nav><button id="tVoz" class="on">VOZ</button><button id="tTec">TECLADO</button><button id="tAju">AJUSTES</button></nav>
 </div>
 
-<div class="bottom">
-  <div id="texto" aria-live="polite"></div>
-  <div id="estado"></div>
-  <button id="accion" hidden></button>
-  <div class="fila">
-    <div class="terminal">
-      <span class="prompt">&gt;</span>
-      <input id="entrada" type="text" placeholder="Escribe aquí…" autocomplete="off" enterkeyhint="send">
-      <button id="enviar" aria-label="Enviar"><svg viewBox="0 0 24 24"><path d="M8 4l8 8-8 8"/></svg></button>
-    </div>
-    <button id="mic" aria-label="Hablar con Nova">
-      <svg viewBox="0 0 64 64" aria-hidden="true">
-        <polygon class="hex" points="32,4 56,18 56,46 32,60 8,46 8,18"/>
-        <rect class="ico" x="27" y="16" width="10" height="19" rx="5"/>
-        <path class="ico" d="M21 30a11 11 0 0 0 22 0M32 41v6M26 47h12"/>
-      </svg>
-    </button>
-    <div class="opciones">
-      <button id="optVoz">Voz</button>
-      <button id="optTeclado">Teclado</button>
-      <button id="optAjustes">Ajustes</button>
-    </div>
-  </div>
-</div>
-
-<div class="panel" id="panel">
-  <div class="caja">
-    <h2>Ajustes de Nova</h2>
-    <label for="clave">Clave de Gemini</label>
-    <input id="clave" type="password" placeholder="Pega aquí tu clave" autocomplete="off">
-    <label for="vozSel">Voz</label>
-    <select id="vozSel"></select>
-    <label for="velocidad">Velocidad de la voz</label>
-    <input id="velocidad" type="range" min="0.8" max="1.3" step="0.05" value="1.05">
-    <p>Lo que Nova recuerda de ti:</p>
-    <div id="recuerdos">Todavía nada.</div>
-    <button id="guardar">Guardar</button>
-    <button id="borrarMem" class="peligro">Borrar memoria de Nova</button>
-    <button id="cerrar">Cerrar</button>
-  </div>
-</div>
+<div id="ajustes"><div id="panel">
+  <b style="color:#4aa8ff;letter-spacing:.3em">AJUSTES</b>
+  <label>Clave de Gemini</label>
+  <input id="clave" type="password" placeholder="Pega tu clave aquí" autocomplete="off">
+  <label>Brillo del diamante</label>
+  <input id="brillo" type="range" min="0.4" max="1.6" step="0.05" value="1">
+  <button id="cerrar">Guardar y cerrar</button>
+  <small>Para borrar la memoria de Nova, mantén apretada la esfera.</small>
+</div></div>
 
 <script>
-(function () {
-  'use strict';
+// ====== CONFIGURACIÓN ======
+// Si Google vuelve a retirar el modelo, solo cambia esta línea:
+const MODELO = "gemini-3.8-flash";
+const SISTEMA = "Eres Nova, una asistente de IA tipo Jarvis. Respondes en español, de forma clara, cálida y breve (máximo 3 frases) porque tus respuestas se leen en voz alta.";
 
-  /* ---------- Almacenamiento seguro ---------- */
-  function leer(k, def) { try { var v = localStorage.getItem(k); return v === null ? def : v; } catch (e) { return def; } }
-  function guardar(k, v) { try { localStorage.setItem(k, v); } catch (e) {} }
+// ====== ALMACENAMIENTO ======
+const $ = id => document.getElementById(id);
+const get = (k, d) => { try { const v = localStorage.getItem(k); return v === null ? d : v; } catch (e) { return d; } };
+const set = (k, v) => { try { localStorage.setItem(k, v); } catch (e) {} };
+let memoria = []; try { memoria = JSON.parse(get("nova_mem", "[]")); } catch (e) {}
+const guardarMem = () => set("nova_mem", JSON.stringify(memoria.slice(-30)));
 
-  var memoria = { hechos: [], historial: [] };
-  try { var m = JSON.parse(leer('nova_mem', '')); if (m && m.hechos && m.historial) memoria = m; } catch (e) {}
-  function guardarMemoria() {
-    memoria.historial = memoria.historial.slice(-30);
-    memoria.hechos = memoria.hechos.slice(-60);
-    guardar('nova_mem', JSON.stringify(memoria));
-  }
-
-  /* ---------- Esfera de plasma ---------- */
-  var cv = document.getElementById('lienzo');
-  var cx = cv.getContext('2d');
-  var W = 0, H = 0, DPR = 1, R = 100;
-  function ajustar() {
-    DPR = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    cv.width = W * DPR; cv.height = H * DPR;
-    cx.setTransform(DPR, 0, 0, DPR, 0, 0);
-    R = Math.min(W * 0.4, H * 0.27);
-  }
-  window.addEventListener('resize', ajustar);
-  ajustar();
-
-  var N = 380;
-  var pts = [], aristas = [];
-  (function crear() {
-    var dorado = Math.PI * (3 - Math.sqrt(5));
-    for (var i = 0; i < N; i++) {
-      var y = 1 - (i / (N - 1)) * 2;
-      var r = Math.sqrt(1 - y * y);
-      var th = dorado * i;
-      // irregularidad: la esfera no es perfecta
-      var irr = 1 + (Math.random() - 0.5) * 0.22;
-      var x = Math.cos(th) * r * irr, z = Math.sin(th) * r * irr;
-      var yy = y * irr;
-      var d = 2.2 + Math.random() * 2.2, a = Math.random() * 6.283, b = Math.acos(2 * Math.random() - 1);
-      pts.push({
-        x: x, y: yy, z: z,
-        sx: d * Math.sin(b) * Math.cos(a), sy: d * Math.cos(b), sz: d * Math.sin(b) * Math.sin(a),
-        delay: Math.random() * 1.9, fase: Math.random() * 6.283, tam: 0.8 + Math.random() * 1.6,
-        p: 0
-      });
-    }
-    var vistos = {};
-    for (var i2 = 0; i2 < N; i2++) {
-      var ds = [];
-      for (var j = 0; j < N; j++) {
-        if (j === i2) continue;
-        var dx = pts[i2].x - pts[j].x, dy = pts[i2].y - pts[j].y, dz = pts[i2].z - pts[j].z;
-        ds.push({ j: j, d: dx * dx + dy * dy + dz * dz });
-      }
-      ds.sort(function (p, q) { return p.d - q.d; });
-      var k = 3 + (Math.random() < 0.35 ? 1 : 0);
-      for (var n = 0; n < k; n++) {
-        var a2 = Math.min(i2, ds[n].j), b2 = Math.max(i2, ds[n].j), key = a2 + '_' + b2;
-        if (!vistos[key]) { vistos[key] = 1; aristas.push([a2, b2]); }
-      }
-    }
-  })();
-
-  var estado = 'reposo'; // reposo | escuchando | pensando | hablando
-  var t0 = performance.now();
-  var rotY = 0, rotX = 0.35, nivel = 0, nivelObj = 0;
-  var arrastre = null, velY = 0;
-  var proy = new Array(N);
-  for (var q = 0; q < N; q++) proy[q] = { x: 0, y: 0, z: 0, p: 0 };
-
-  function suave(x) { x = x < 0 ? 0 : x > 1 ? 1 : x; return 1 - Math.pow(1 - x, 3); }
-  function limitar(x, lo, hi) { return x < lo ? lo : x > hi ? hi : x; }
-
-  function dibujar(ahora) {
-    // Se pide el siguiente cuadro al inicio: si algo falla, la animación no se detiene
-    requestAnimationFrame(dibujar);
-
-    var t = Math.max(0, (ahora - t0) / 1000);
-    cx.globalCompositeOperation = 'source-over';
-    cx.fillStyle = '#000';
-    cx.fillRect(0, 0, W, H);
-
-    nivelObj = estado === 'hablando' ? 0.05 + 0.05 * (Math.sin(t * 9) * 0.5 + 0.5) * (0.6 + 0.4 * Math.sin(t * 3.1)) :
-               estado === 'escuchando' ? 0.03 + 0.012 * Math.sin(t * 3) :
-               estado === 'pensando' ? 0.02 + 0.02 * Math.sin(t * 6) : 0.012 * Math.sin(t * 1.2);
-    nivel += (nivelObj - nivel) * 0.12;
-
-    if (!arrastre) { velY += (0.0035 + (estado === 'pensando' ? 0.006 : 0) - velY) * 0.03; rotY += velY; }
-    var cy = Math.cos(rotY), sy = Math.sin(rotY), cxx = Math.cos(rotX), sxx = Math.sin(rotX);
-    var ox = W / 2, oy = H * 0.42;
-
-    for (var i = 0; i < N; i++) {
-      var p = pts[i], pr = proy[i];
-      var prog = suave((t - 0.3 - p.delay) / 1.7);
-      p.p = prog;
-      var onda = 1 + nivel * Math.sin(t * 5 + p.fase * 3) + 0.018 * Math.sin(t * 1.4 + p.fase);
-      var x = (p.sx + (p.x - p.sx) * prog) * onda;
-      var y = (p.sy + (p.y - p.sy) * prog) * onda;
-      var z = (p.sz + (p.z - p.sz) * prog) * onda;
-      var x1 = x * cy + z * sy, z1 = -x * sy + z * cy;
-      var y2 = y * cxx - z1 * sxx, z2 = y * sxx + z1 * cxx;
-      var esc = 1 / Math.max(0.2, 1 - z2 * 0.18);
-      pr.x = ox + x1 * R * esc; pr.y = oy + y2 * R * esc; pr.z = z2; pr.p = prog;
-    }
-
-    cx.globalCompositeOperation = 'lighter';
-    var brillo = estado === 'escuchando' ? 1.25 : 1;
-    cx.lineWidth = 0.7;
-    for (var e = 0; e < aristas.length; e++) {
-      var A = proy[aristas[e][0]], B = proy[aristas[e][1]];
-      var vis = Math.min(A.p, B.p); if (vis < 0.02) continue;
-      var prof = limitar(((A.z + B.z) * 0.5 + 1) * 0.5, 0, 1);
-      var al = (0.08 + prof * 0.4) * vis * brillo;
-      cx.strokeStyle = 'rgba(' + ((110 + prof * 120) | 0) + ',' + ((185 + prof * 60) | 0) + ',255,' + al.toFixed(3) + ')';
-      cx.beginPath(); cx.moveTo(A.x, A.y); cx.lineTo(B.x, B.y); cx.stroke();
-    }
-    for (var i3 = 0; i3 < N; i3++) {
-      var P = proy[i3], q2 = pts[i3];
-      if (P.p < 0.01) continue;
-      var pf = limitar((P.z + 1) * 0.5, 0, 1);
-      var rad = Math.max(0.4, q2.tam * (0.7 + pf * 1.1) * (R / 150 + 0.5));
-      var a = (0.35 + pf * 0.65) * Math.min(1, P.p * 1.5) * brillo;
-      var g = cx.createRadialGradient(P.x, P.y, 0, P.x, P.y, rad * 3.2);
-      g.addColorStop(0, 'rgba(235,248,255,' + Math.min(1, a).toFixed(3) + ')');
-      g.addColorStop(0.35, 'rgba(110,190,255,' + (a * 0.5).toFixed(3) + ')');
-      g.addColorStop(1, 'rgba(60,140,255,0)');
-      cx.fillStyle = g;
-      cx.beginPath(); cx.arc(P.x, P.y, rad * 3.2, 0, 6.283); cx.fill();
-    }
-    // resplandor central
-    var gl = cx.createRadialGradient(ox, oy, 0, ox, oy, R * 1.25);
-    gl.addColorStop(0, 'rgba(120,190,255,' + Math.max(0, 0.1 + nivel * 2).toFixed(3) + ')');
-    gl.addColorStop(1, 'rgba(0,0,0,0)');
-    cx.fillStyle = gl; cx.fillRect(0, 0, W, H);
-
-    // núcleo de diamante azul (aparece mientras la esfera se forma y late con la voz)
-    var ap = suave((t - 0.8) / 1.8);
-    var pulso = 1 + 0.05 * Math.sin(t * 2.2) + nivel * 3;
-    var rc = R * 0.3 * ap * pulso;
-    if (rc > 1) {
-      var nc = cx.createRadialGradient(ox, oy, 0, ox, oy, rc * 2.4);
-      nc.addColorStop(0, 'rgba(235,250,255,' + (0.9 * ap).toFixed(3) + ')');
-      nc.addColorStop(0.25, 'rgba(120,210,255,' + (0.7 * ap).toFixed(3) + ')');
-      nc.addColorStop(0.55, 'rgba(50,130,255,' + (0.28 * ap).toFixed(3) + ')');
-      nc.addColorStop(1, 'rgba(30,90,255,0)');
-      cx.fillStyle = nc;
-      cx.beginPath(); cx.arc(ox, oy, rc * 2.4, 0, 6.283); cx.fill();
-
-      // diamante (octaedro) girando con facetas que brillan
-      var dang = t * 0.9, dca = Math.cos(dang), dsa = Math.sin(dang), dct = Math.cos(0.35), dst = Math.sin(0.35);
-      var ds2 = rc * 0.62;
-      var DV = [[0, -1.35, 0], [0, 1.35, 0], [1, 0, 0], [0, 0, 1], [-1, 0, 0], [0, 0, -1]];
-      var DQ = DV.map(function (v) {
-        var gx = v[0] * dca + v[2] * dsa, gz = -v[0] * dsa + v[2] * dca;
-        var gy = v[1] * dct - gz * dst, gz2 = v[1] * dst + gz * dct;
-        return { x: ox + gx * ds2, y: oy + gy * ds2, z: gz2 };
-      });
-      var DF = [[0, 2, 3], [0, 3, 4], [0, 4, 5], [0, 5, 2], [1, 3, 2], [1, 4, 3], [1, 5, 4], [1, 2, 5]];
-      DF.forEach(function (f, k) {
-        var A1 = DQ[f[0]], B1 = DQ[f[1]], C1 = DQ[f[2]];
-        var brillo2 = 0.5 + 0.5 * Math.sin(k * 1.7 + t * 1.6);
-        var alf = (0.12 + brillo2 * 0.38) * ap;
-        cx.fillStyle = 'rgba(' + ((140 + brillo2 * 100) | 0) + ',' + ((205 + brillo2 * 45) | 0) + ',255,' + alf.toFixed(3) + ')';
-        cx.strokeStyle = 'rgba(225,246,255,' + (0.8 * ap).toFixed(3) + ')';
-        cx.lineWidth = 0.8;
-        cx.beginPath(); cx.moveTo(A1.x, A1.y); cx.lineTo(B1.x, B1.y); cx.lineTo(C1.x, C1.y); cx.closePath();
-        cx.fill(); cx.stroke();
-      });
-    }
-  }
-  requestAnimationFrame(dibujar);
-
-  // arrastrar para girar la esfera
-  cv.addEventListener('pointerdown', function (e) { arrastre = { x: e.clientX, y: e.clientY }; try { cv.setPointerCapture(e.pointerId); } catch (x) {} });
-  cv.addEventListener('pointermove', function (e) {
-    if (!arrastre) return;
-    var dx = e.clientX - arrastre.x, dy = e.clientY - arrastre.y;
-    rotY += dx * 0.008; velY = dx * 0.0008; rotX = Math.max(-1.2, Math.min(1.2, rotX + dy * 0.006));
-    arrastre = { x: e.clientX, y: e.clientY };
+// ====== GEMINI ======
+async function preguntar(texto) {
+  const clave = get("nova_clave", "");
+  if (!clave) { abrirAjustes(); throw new Error("Falta tu clave de Gemini. Ponla en Ajustes."); }
+  memoria.push({ role: "user", parts: [{ text: texto }] });
+  const url = "https://generativelanguage.googleapis.com/v1beta/models/" + MODELO + ":generateContent";
+  const r = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": clave },
+    body: JSON.stringify({ systemInstruction: { parts: [{ text: SISTEMA }] }, contents: memoria.slice(-30) })
   });
-  function soltar() { arrastre = null; }
-  cv.addEventListener('pointerup', soltar); cv.addEventListener('pointercancel', soltar);
+  const d = await r.json();
+  if (!r.ok) { memoria.pop(); throw new Error((d.error && d.error.message) || ("Error " + r.status)); }
+  const resp = (d.candidates && d.candidates[0] && d.candidates[0].content.parts.map(p => p.text || "").join("")) || "No obtuve respuesta.";
+  memoria.push({ role: "model", parts: [{ text: resp }] });
+  guardarMem();
+  return resp;
+}
 
-  /* ---------- Interfaz ---------- */
-  var elTexto = document.getElementById('texto');
-  var elEstado = document.getElementById('estado');
-  var elEntrada = document.getElementById('entrada');
-  var btnMic = document.getElementById('mic');
-  function ponerEstado(s, etiqueta) { estado = s; elEstado.textContent = etiqueta || ''; btnMic.classList.toggle('on', s === 'escuchando'); }
-  function mostrar(txt) { elTexto.textContent = txt; elTexto.scrollTop = elTexto.scrollHeight; }
+async function enviar(texto) {
+  texto = (texto || "").trim(); if (!texto) return;
+  $("msg").textContent = "…";
+  try { const r = await preguntar(texto); $("msg").textContent = r; hablar(r); }
+  catch (e) { $("msg").textContent = "No pude conectar con Gemini: " + e.message; }
+}
 
-  /* ---------- Voz de salida ---------- */
-  var voces = [], vozElegida = leer('nova_voz', '');
-  var velocidad = parseFloat(leer('nova_vel', '1.05')) || 1.05;
-  function puntuar(v) {
-    var s = 0, n = (v.name || '').toLowerCase();
-    if (/natural|neural|online|premium|enhanced|google/.test(n)) s += 5;
-    if (/^es[-_]mx|^es[-_]us|^es[-_]419/i.test(v.lang)) s += 2;
-    if (/^es/i.test(v.lang)) s += 10;
-    if (v.localService === false) s += 1;
-    return s;
-  }
-  function cargarVoces() {
-    if (!window.speechSynthesis) return;
-    voces = speechSynthesis.getVoices().filter(function (v) { return /^es/i.test(v.lang); });
-    voces.sort(function (a, b) { return puntuar(b) - puntuar(a); });
-    var sel = document.getElementById('vozSel');
-    sel.innerHTML = '';
-    if (!voces.length) { var o = document.createElement('option'); o.textContent = 'Voz del sistema'; sel.appendChild(o); return; }
-    voces.forEach(function (v) {
-      var o = document.createElement('option'); o.value = v.name; o.textContent = v.name + ' (' + v.lang + ')';
-      if (v.name === vozElegida) o.selected = true; sel.appendChild(o);
-    });
-  }
-  if (window.speechSynthesis) { cargarVoces(); speechSynthesis.onvoiceschanged = cargarVoces; }
+// ====== VOZ ======
+let vozEs = null;
+function cargarVoz() {
+  const v = speechSynthesis.getVoices().filter(x => x.lang.toLowerCase().startsWith("es"));
+  vozEs = v.find(x => /natural|neural|google|online/i.test(x.name)) || v[0] || null;
+}
+if ("speechSynthesis" in window) { cargarVoz(); speechSynthesis.onvoiceschanged = cargarVoz; }
+function hablar(t) {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const partes = t.replace(/[*_#`]/g, "").match(/[^.!?\n]+[.!?]?/g) || [t];
+  partes.forEach(p => { const u = new SpeechSynthesisUtterance(p.trim()); u.lang = "es-ES"; if (vozEs) u.voice = vozEs; u.rate = 1.03; u.pitch = 1; speechSynthesis.speak(u); });
+}
+const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+let rec = null, escuchando = false;
+$("mic").onclick = () => {
+  if (!SR) { $("msg").textContent = "Este navegador no permite voz. Usa Chrome."; return; }
+  if (escuchando && rec) { rec.stop(); return; }
+  speechSynthesis.cancel();
+  rec = new SR(); rec.lang = "es-ES"; rec.interimResults = false;
+  rec.onstart = () => { escuchando = true; $("mic").classList.add("on"); };
+  rec.onend = () => { escuchando = false; $("mic").classList.remove("on"); };
+  rec.onerror = e => { $("msg").textContent = "Micrófono: " + e.error; };
+  rec.onresult = e => { const t = e.results[0][0].transcript; $("msg").textContent = "> " + t; enviar(t); };
+  rec.start();
+};
 
-  var conversacion = false; // si está activo, Nova vuelve a escuchar tras hablar
-  function limpiarParaVoz(t) { return t.replace(/[*_`#>]+/g, '').replace(/\s+/g, ' ').trim(); }
-  function hablar(texto, alTerminar) {
-    if (!window.speechSynthesis) { if (alTerminar) alTerminar(); return; }
-    speechSynthesis.cancel();
-    var limpio = limpiarParaVoz(texto);
-    var frases = limpio.match(/[^.!?¡¿\n]+[.!?]*/g) || [limpio];
-    var elegida = null;
-    for (var i = 0; i < voces.length; i++) if (voces[i].name === vozElegida) elegida = voces[i];
-    if (!elegida && voces.length) elegida = voces[0];
-    var pendientes = frases.filter(function (f) { return f.trim(); });
-    if (!pendientes.length) { if (alTerminar) alTerminar(); return; }
-    ponerEstado('hablando', 'Nova está hablando');
-    pendientes.forEach(function (f, idx) {
-      var u = new SpeechSynthesisUtterance(f.trim());
-      if (elegida) { u.voice = elegida; u.lang = elegida.lang; } else u.lang = 'es-ES';
-      u.rate = velocidad; u.pitch = 1;
-      if (idx === pendientes.length - 1) {
-        u.onend = function () { ponerEstado('reposo', ''); if (alTerminar) alTerminar(); };
-        u.onerror = u.onend;
-      }
-      speechSynthesis.speak(u);
-    });
-  }
+// ====== PESTAÑAS Y AJUSTES ======
+function modo(t) { $("tVoz").classList.toggle("on", t === "voz"); $("tTec").classList.toggle("on", t === "tec"); $("kb").classList.toggle("on", t === "tec"); if (t === "tec") $("txt").focus(); }
+$("tVoz").onclick = () => modo("voz"); $("tTec").onclick = () => modo("tec");
+$("send").onclick = () => { const t = $("txt").value; $("txt").value = ""; enviar(t); };
+$("txt").onkeydown = e => { if (e.key === "Enter") $("send").click(); };
+function abrirAjustes() { $("clave").value = get("nova_clave", ""); $("brillo").value = get("nova_brillo", "1"); $("ajustes").classList.add("on"); }
+$("gear").onclick = abrirAjustes; $("tAju").onclick = abrirAjustes;
+$("brillo").oninput = e => { brillo = +e.target.value; };
+$("cerrar").onclick = () => { set("nova_clave", $("clave").value.trim()); set("nova_brillo", $("brillo").value); $("ajustes").classList.remove("on"); };
+let brillo = +get("nova_brillo", "1");
 
-  /* ---------- Reconocimiento de voz ---------- */
-  var SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-  var rec = null, escuchando = false;
-  function iniciarEscucha() {
-    if (!SR) { mostrar('Este navegador no permite escuchar la voz. Abre Nova en Chrome o escribe tu mensaje.'); return; }
-    if (escuchando) return;
-    if (window.speechSynthesis) speechSynthesis.cancel();
-    rec = new SR(); rec.lang = 'es-ES'; rec.interimResults = true; rec.continuous = false;
-    var final = '';
-    rec.onstart = function () { escuchando = true; ponerEstado('escuchando', 'Te escucho…'); };
-    rec.onresult = function (ev) {
-      var parcial = '';
-      for (var i = ev.resultIndex; i < ev.results.length; i++) {
-        if (ev.results[i].isFinal) final += ev.results[i][0].transcript; else parcial += ev.results[i][0].transcript;
-      }
-      mostrar(final + parcial);
-    };
-    rec.onerror = function (ev) {
-      escuchando = false; conversacion = false;
-      var msg = ev.error === 'not-allowed' ? 'Permite el micrófono para que Nova te escuche.' : ev.error === 'no-speech' ? 'No te oí. Toca el micrófono y habla.' : 'No pude escucharte. Intenta de nuevo.';
-      ponerEstado('reposo', ''); mostrar(msg);
-    };
-    rec.onend = function () {
-      escuchando = false;
-      if (final.trim()) enviar(final.trim());
-      else if (estado === 'escuchando') ponerEstado('reposo', '');
-    };
-    try { rec.start(); } catch (e) {}
-  }
-  btnMic.addEventListener('click', function () {
-    if (escuchando) { conversacion = false; try { rec.stop(); } catch (e) {} return; }
-    conversacion = true; iniciarEscucha();
+// ====== ESFERA 3D ======
+const cv = $("c"), ctx = cv.getContext("2d");
+let W, H, DPR;
+function ajustar() { DPR = Math.min(devicePixelRatio || 1, 2); W = cv.clientWidth; H = cv.clientHeight; cv.width = W * DPR; cv.height = H * DPR; }
+addEventListener("resize", ajustar); ajustar();
+
+const N = 170, pts = [];
+for (let i = 0; i < N; i++) {
+  const y = 1 - 2 * (i + .5) / N, r = Math.sqrt(1 - y * y), a = i * 2.39996;
+  const k = .78 + Math.random() * .3;
+  pts.push({ x: Math.cos(a) * r * k, y: y * k, z: Math.sin(a) * r * k, d: Math.random() * .6 });
+}
+const lineas = [];
+for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
+  const dx = pts[i].x - pts[j].x, dy = pts[i].y - pts[j].y, dz = pts[i].z - pts[j].z;
+  if (dx * dx + dy * dy + dz * dz < .16) lineas.push([i, j]);
+}
+let ang = 0, t0 = performance.now(), arrastre = 0, giroExtra = 0;
+
+function frame(now) {
+  const t = (now - t0) / 1000;
+  const build = Math.min(1, t / 2.4); // animación de creación solo al abrir
+  ang += .004 + giroExtra; giroExtra *= .95;
+  ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
+  const R = Math.min(W, H) * .46, cx = W / 2, cy = H / 2, ca = Math.cos(ang), sa = Math.sin(ang);
+  const P = pts.map(p => {
+    const e = Math.max(0, Math.min(1, (build - p.d) / .4));
+    const s = e * e * (3 - 2 * e);
+    const x = p.x * ca + p.z * sa, z = -p.x * sa + p.z * ca, f = 1 / (1.8 - z * .5);
+    return { X: cx + x * R * s * f * 1.5, Y: cy + p.y * R * s * f * 1.5, z, s };
   });
+  ctx.globalCompositeOperation = "lighter";
+  ctx.lineWidth = .7;
+  for (const [i, j] of lineas) {
+    const a = P[i], b = P[j], o = Math.min(a.s, b.s) * (.12 + .25 * ((a.z + b.z + 2) / 4));
+    if (o < .01) continue;
+    ctx.strokeStyle = "rgba(140,200,255," + o + ")"; ctx.beginPath(); ctx.moveTo(a.X, a.Y); ctx.lineTo(b.X, b.Y); ctx.stroke();
+  }
+  for (const p of P) {
+    if (p.s < .01) continue;
+    const r = (1.6 + (p.z + 1) * 1.6) * p.s, g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, r * 4);
+    g.addColorStop(0, "rgba(220,240,255," + .9 * p.s + ")"); g.addColorStop(.3, "rgba(70,150,255," + .45 * p.s + ")"); g.addColorStop(1, "rgba(30,90,255,0)");
+    ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.X, p.Y, r * 4, 0, 6.3); ctx.fill();
+  }
+  // núcleo: diamante brillante en el centro
+  const pulso = (1 + .06 * Math.sin(t * 2)) * build * brillo, dm = R * .13 * pulso;
+  const halo = ctx.createRadialGradient(cx, cy, 0, cx, cy, dm * 5);
+  halo.addColorStop(0, "rgba(150,210,255," + .55 * Math.min(1, brillo) + ")"); halo.addColorStop(1, "rgba(40,110,255,0)");
+  ctx.fillStyle = halo; ctx.beginPath(); ctx.arc(cx, cy, dm * 5, 0, 6.3); ctx.fill();
+  ctx.globalCompositeOperation = "source-over";
+  ctx.fillStyle = "#fff"; ctx.shadowColor = "#7cc0ff"; ctx.shadowBlur = 25 * brillo;
+  ctx.beginPath(); ctx.moveTo(cx, cy - dm * 1.5); ctx.lineTo(cx + dm, cy); ctx.lineTo(cx, cy + dm * 1.5); ctx.lineTo(cx - dm, cy); ctx.closePath(); ctx.fill();
+  ctx.shadowBlur = 0;
+  requestAnimationFrame(frame);
+}
+requestAnimationFrame(frame);
 
-  /* ---------- Cerebro: Gemini + memoria ---------- */
-  function sistema() {
-    var hechos = memoria.hechos.length ? memoria.hechos.map(function (h) { return '- ' + h; }).join('\n') : '(todavía no sabes nada del usuario)';
-    return 'Eres Nova, una asistente de IA tipo Jarvis: cercana, inteligente y directa. Hablas en español natural, con frases cortas pensadas para ser dichas en voz alta. ' +
-      'No uses listas, asteriscos ni emojis. Responde en 1 a 3 frases salvo que te pidan más.\n' +
-      'Esto es lo que recuerdas del usuario:\n' + hechos + '\n' +
-      'Si el usuario te pide recordar algo o dice un dato personal duradero, añade al final de tu respuesta una línea con el formato [[RECORDAR: dato breve]]. ' +
-      'Si te pide olvidar algo, añade [[OLVIDAR: palabra clave]]. Esas líneas no se dicen en voz alta.\n' +
-      'No puedes controlar el teléfono por tu cuenta ni leer sus mensajes. Pero SÍ puedes abrir cosas: si el usuario te pide abrir algo, responde en una frase corta y añade al final UNA línea con el formato [[ABRIR: tipo|dato]] usando solo estos tipos: ' +
-      'youtube|qué buscar, maps|lugar o dirección, llamar|número de teléfono, whatsapp|número con código de país|mensaje (el mensaje es opcional), web|dirección de la página. ' +
-      'Esa línea no se dice en voz alta. Si falta un dato, por ejemplo el número, pídelo en vez de inventarlo.';
-  }
-  function procesarMarcas(texto) {
-    var cambios = false;
-    texto = texto.replace(/\[\[RECORDAR:\s*([^\]]+)\]\]/gi, function (_, h) { memoria.hechos.push(h.trim()); cambios = true; return ''; });
-    texto = texto.replace(/\[\[OLVIDAR:\s*([^\]]+)\]\]/gi, function (_, k) {
-      var kk = k.trim().toLowerCase();
-      memoria.hechos = memoria.hechos.filter(function (h) { return h.toLowerCase().indexOf(kk) === -1; }); cambios = true; return '';
-    });
-    texto = texto.replace(/\[\[ABRIR:\s*([^\]]+)\]\]/gi, function (_, d) {
-      var p = d.split('|').map(function (x) { return x.trim(); });
-      accionPendiente = { tipo: (p[0] || '').toLowerCase(), dato: p[1] || '', extra: p[2] || '' }; return '';
-    });
-    if (cambios) guardarMemoria();
-    return texto.trim();
-  }
+// Mantener apretada la esfera = borrar memoria
+let timer = null, ox = 0;
+cv.addEventListener("pointerdown", e => {
+  ox = e.clientX;
+  timer = setTimeout(() => {
+    timer = null;
+    if (confirm("¿Borrar la memoria de Nova?")) { memoria = []; guardarMem(); $("msg").textContent = "Memoria borrada."; }
+  }, 1200);
+});
+cv.addEventListener("pointermove", e => { if (timer && Math.abs(e.clientX - ox) > 12) { clearTimeout(timer); timer = null; } giroExtra += (e.movementX || 0) * .0004; });
+["pointerup", "pointerleave", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => { if (timer) { clearTimeout(timer); timer = null; } }));
 
-  var ocupado = false;
-  var accionPendiente = null;
-  var btnAccion = document.getElementById('accion');
-  var etiquetas = { youtube: 'YouTube', maps: 'Maps', llamar: 'llamada', whatsapp: 'WhatsApp', web: 'página' };
-  function urlAccion(a) {
-    if (!a || !a.dato) return '';
-    var d = a.dato;
-    if (a.tipo === 'youtube') return 'https://www.youtube.com/results?search_query=' + encodeURIComponent(d);
-    if (a.tipo === 'maps') return 'https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(d);
-    if (a.tipo === 'llamar') { var n = d.replace(/[^\d+]/g, ''); return n ? 'tel:' + n : ''; }
-    if (a.tipo === 'whatsapp') { var w = d.replace(/\D/g, ''); return w ? 'https://wa.me/' + w + (a.extra ? '?text=' + encodeURIComponent(a.extra) : '') : ''; }
-    if (a.tipo === 'web') return /^https?:\/\//i.test(d) ? d : 'https://' + d;
-    return '';
-  }
-  function prepararAccion(a) {
-    var u = urlAccion(a);
-    if (!u) { btnAccion.hidden = true; return ''; }
-    btnAccion.textContent = 'Abrir ' + (etiquetas[a.tipo] || '') + ' →';
-    btnAccion.onclick = function () { window.location.href = u; };
-    btnAccion.hidden = false;
-    return u;
-  }
-  function enviar(texto) {
-    if (ocupado || !texto) return;
-    btnAccion.hidden = true; accionPendiente = null;
-    var clave = leer('nova_clave', '');
-    mostrar(texto);
-    if (!clave) { abrirPanel(); mostrar('Pega tu clave de Gemini en Ajustes para que Nova pueda responder.'); ponerEstado('reposo', ''); return; }
-    ocupado = true; ponerEstado('pensando', 'Pensando…');
-    memoria.historial.push({ r: 'user', t: texto });
-    var contenido = memoria.historial.slice(-12).map(function (m) { return { role: m.r === 'user' ? 'user' : 'model', parts: [{ text: m.t }] }; });
-    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=' + encodeURIComponent(clave);
-    fetch(url, {
-      method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ systemInstruction: { parts: [{ text: sistema() }] }, contents: contenido, generationConfig: { temperature: 0.8, maxOutputTokens: 400 } })
-    }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
-    .then(function (res) {
-      if (!res.ok) throw new Error((res.j && res.j.error && res.j.error.message) || 'Error de Gemini');
-      var parts = res.j.candidates && res.j.candidates[0] && res.j.candidates[0].content && res.j.candidates[0].content.parts;
-      var bruto = parts ? parts.map(function (p) { return p.text || ''; }).join('') : '';
-      var resp = procesarMarcas(bruto) || (accionPendiente ? 'Listo.' : 'No supe qué responder. ¿Me lo repites?');
-      memoria.historial.push({ r: 'model', t: resp }); guardarMemoria();
-      mostrar(resp); ocupado = false;
-      var acc = accionPendiente; accionPendiente = null;
-      var urlAbrir = prepararAccion(acc);
-      hablar(resp, function () {
-        if (urlAbrir) { conversacion = false; window.location.href = urlAbrir; }
-        else if (conversacion) iniciarEscucha();
-      });
-    }).catch(function (err) {
-      ocupado = false; conversacion = false; memoria.historial.pop(); ponerEstado('reposo', '');
-      var m = String(err.message || err);
-      mostrar(/API key|invalid|permission/i.test(m) ? 'La clave de Gemini no funciona. Revísala en Ajustes.' : 'No pude conectar con Gemini: ' + m);
-    });
-  }
-  function enviarEscrito() { var v = elEntrada.value.trim(); elEntrada.value = ''; conversacion = false; enviar(v); }
-  elEntrada.addEventListener('keydown', function (e) { if (e.key === 'Enter') enviarEscrito(); });
-  document.getElementById('enviar').addEventListener('click', enviarEscrito);
-
-  /* ---------- Ajustes ---------- */
-  var panel = document.getElementById('panel');
-  function pintarRecuerdos() {
-    document.getElementById('recuerdos').textContent = memoria.hechos.length ? memoria.hechos.map(function (h) { return '• ' + h; }).join('\n') : 'Todavía nada.';
-  }
-  function abrirPanel() {
-    document.getElementById('clave').value = leer('nova_clave', '');
-    document.getElementById('velocidad').value = velocidad;
-    cargarVoces(); pintarRecuerdos(); panel.classList.add('abierto');
-  }
-  document.getElementById('abrirAjustes').addEventListener('click', abrirPanel);
-  document.getElementById('optAjustes').addEventListener('click', abrirPanel);
-  document.getElementById('optVoz').addEventListener('click', function () {
-    abrirPanel();
-    setTimeout(function () { var sv = document.getElementById('vozSel'); if (sv) sv.focus(); }, 50);
-  });
-  document.getElementById('optTeclado').addEventListener('click', function () {
-    var f = document.querySelector('.fila'); var on = f.classList.toggle('teclado');
-    this.classList.toggle('act', on); if (on) elEntrada.focus();
-  });
-  document.getElementById('cerrar').addEventListener('click', function () { panel.classList.remove('abierto'); });
-  document.getElementById('guardar').addEventListener('click', function () {
-    guardar('nova_clave', document.getElementById('clave').value.trim());
-    var sel = document.getElementById('vozSel'); if (sel.value) { vozElegida = sel.value; guardar('nova_voz', vozElegida); }
-    velocidad = parseFloat(document.getElementById('velocidad').value) || 1.05; guardar('nova_vel', String(velocidad));
-    panel.classList.remove('abierto');
-    mostrar('Listo. Toca el micrófono y háblame.');
-  });
-  document.getElementById('borrarMem').addEventListener('click', function () {
-    memoria = { hechos: [], historial: [] }; guardarMemoria(); pintarRecuerdos();
-  });
-
-  /* ---------- Inicio ---------- */
-  mostrar(leer('nova_clave', '') ? 'Toca el micrófono y háblame.' : 'Abre Ajustes y pega tu clave de Gemini para empezar.');
-
-  if ('serviceWorker' in navigator) { navigator.serviceWorker.register('sw.js').catch(function () {}); }
-})();
+// Instalable desde Chrome (sin archivos extra)
 </script>
 </body>
 </html>
