@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#000000">
+<link rel="manifest" href="manifest.json">
 <title>Nova</title>
 <style>
 :root{--azul:#4aa8ff;--fondo:#000;--brillo:1}
@@ -204,7 +205,8 @@ cv.addEventListener("pointerdown", e => {
 cv.addEventListener("pointermove", e => { if (timer && Math.abs(e.clientX - ox) > 12) { clearTimeout(timer); timer = null; } giroExtra += (e.movementX || 0) * .0004; });
 ["pointerup", "pointerleave", "pointercancel"].forEach(ev => cv.addEventListener(ev, () => { if (timer) { clearTimeout(timer); timer = null; } }));
 
-// Instalable desde Chrome (sin archivos extra)
+// Instalable desde Chrome
+if ("serviceWorker" in navigator) navigator.serviceWorker.register("sw.js").catch(() => {});
 </script>
 </body>
 </html>
