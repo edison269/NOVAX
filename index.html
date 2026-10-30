@@ -156,7 +156,7 @@ for (let i = 0; i < N; i++) for (let j = i + 1; j < N; j++) {
 let ang = 0, t0 = performance.now(), arrastre = 0, giroExtra = 0;
 
 function frame(now) {
-  const t = (now - t0) / 1000;
+  const t = Math.max(0, (now - t0) / 1000);
   const build = Math.min(1, t / 2.4); // animación de creación solo al abrir
   ang += .004 + giroExtra; giroExtra *= .95;
   ctx.setTransform(DPR, 0, 0, DPR, 0, 0); ctx.clearRect(0, 0, W, H);
@@ -176,7 +176,7 @@ function frame(now) {
   }
   for (const p of P) {
     if (p.s < .01) continue;
-    const r = (1.6 + (p.z + 1) * 1.6) * p.s, g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, r * 4);
+    const r = Math.max(0.5, 1.6 + (p.z + 1) * 1.6) * p.s, g = ctx.createRadialGradient(p.X, p.Y, 0, p.X, p.Y, r * 4);
     g.addColorStop(0, "rgba(220,240,255," + .9 * p.s + ")"); g.addColorStop(.3, "rgba(70,150,255," + .45 * p.s + ")"); g.addColorStop(1, "rgba(30,90,255,0)");
     ctx.fillStyle = g; ctx.beginPath(); ctx.arc(p.X, p.Y, r * 4, 0, 6.3); ctx.fill();
   }
