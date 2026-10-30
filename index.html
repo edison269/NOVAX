@@ -18,6 +18,7 @@ header b{letter-spacing:.5em;font-weight:400;color:var(--azul)}
 canvas{width:100%;height:100%;display:block;touch-action:none}
 #msg{max-height:24vh;overflow:auto;border-left:2px solid #2a5a8c;padding:8px 12px;margin:6px 0;font-size:15px;line-height:1.45;background:linear-gradient(90deg,#06101c,transparent);white-space:pre-wrap}
 #msg:empty{display:none}
+#info{font-size:11px;color:#4f6f90;min-height:14px;padding:0 2px}
 #kb{display:none;border:1px solid #cfe6ff;border-right:0;margin:8px 0;background:#050b14}
 #kb.on{display:flex}
 #kb span{padding:14px 10px;color:var(--azul)}
@@ -35,6 +36,7 @@ nav button.on{color:#e6f2ff;border-color:var(--azul)}
 #panel label{display:block;margin:14px 0 6px;font-size:13px;color:#8fb4da}
 #panel input[type=password],#panel input[type=text]{width:100%;padding:10px;background:#000;border:1px solid #234;color:#cfe6ff;font:inherit}
 #panel input[type=range]{width:100%}
+#panel select{width:100%;padding:10px;background:#000;border:1px solid #234;color:#cfe6ff;font:inherit}
 #panel button{margin-top:18px;width:100%;padding:12px;background:#0b2036;border:1px solid var(--azul);color:#e6f2ff;font:inherit}
 small{display:block;margin-top:12px;color:#6f8aa8;line-height:1.4}
 </style>
@@ -44,6 +46,7 @@ small{display:block;margin-top:12px;color:#6f8aa8;line-height:1.4}
   <header><b>NOVA</b><button id="gear" aria-label="Ajustes">⚙</button></header>
   <div id="stage"><canvas id="c"></canvas></div>
   <div id="msg"></div>
+  <div id="info"></div>
   <div id="kb"><span>&gt;</span><input id="txt" placeholder="Escribe aquí…" autocomplete="off"><button id="send" aria-label="Enviar">›</button></div>
   <button id="mic" aria-label="Hablar"><svg viewBox="0 0 100 110" fill="none" stroke="#4aa8ff" stroke-width="4" stroke-linejoin="round"><path d="M50 4 94 29v52L50 106 6 81V29z"/><rect x="39" y="26" width="22" height="38" rx="11"/><path d="M30 54a20 20 0 0 0 40 0M50 74v14M38 88h24"/></svg></button>
   <nav><button id="tVoz" class="on">VOZ</button><button id="tTec">TECLADO</button><button id="tAju">AJUSTES</button></nav>
@@ -53,6 +56,8 @@ small{display:block;margin-top:12px;color:#6f8aa8;line-height:1.4}
   <b style="color:#4aa8ff;letter-spacing:.3em">AJUSTES</b>
   <label>Clave de Gemini</label>
   <input id="clave" type="password" placeholder="Pega tu clave aquí" autocomplete="off">
+  <label>Modelo de Gemini</label>
+  <select id="modelo"><option value="">Automático</option></select>
   <label>Brillo del diamante</label>
   <input id="brillo" type="range" min="0.4" max="1.6" step="0.05" value="1">
   <button id="cerrar">Guardar y cerrar</button>
@@ -75,29 +80,35 @@ const guardarMem = () => set("nova_mem", JSON.stringify(memoria.slice(-30)));
 // ====== GEMINI ======
 const API = "https://generativelanguage.googleapis.com/v1beta/";
 // Si el modelo se retira, Nova busca sola uno "flash" disponible y lo recuerda.
-async function buscarModelo(clave) {
+async function listarModelos(clave) {
   const r = await fetch(API + "models?pageSize=200", { headers: { "x-goog-api-key": clave } });
   const d = await r.json();
   if (!r.ok) throw new Error((d.error && d.error.message) || ("Error " + r.status));
-  const ok = (d.models || [])
+  return (d.models || [])
     .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
     .map(m => m.name.replace("models/", ""))
-    .filter(n => /flash/i.test(n) && !/(lite|image|tts|live|audio|thinking|exp|preview|embed|vision)/i.test(n));
+    .filter(n => /^gemini/i.test(n) && !/(image|tts|live|audio|embed|vision|robotics|computer)/i.test(n));
+}
+async function buscarModelo(clave) {
+  const ok = (await listarModelos(clave)).filter(n => /flash/i.test(n) && !/(lite|exp|preview|thinking)/i.test(n));
   const ver = n => { const m = n.match(/(\d+)(?:\.(\d+))?/); return m ? +m[1] * 100 + (+m[2] || 0) : 0; };
   ok.sort((x, y) => ver(y) - ver(x));
   if (!ok.length) throw new Error("No encontré ningún modelo disponible para tu clave.");
-  set("nova_modelo", ok[0]);
+  set("nova_modelo", ok[0]); set("nova_cfg", "0");
   return ok[0];
 }
 async function llamar(modelo, clave, onTexto) {
   const cuerpo = cfg => JSON.stringify(Object.assign({ systemInstruction: { parts: [{ text: SISTEMA }] }, contents: memoria.slice(-20) }, cfg ? { generationConfig: cfg } : {}));
   // Poco pensamiento y texto corto = más rápido. Si el modelo no acepta algo, prueba más simple.
   const intentos = [{ maxOutputTokens: 400, thinkingConfig: { thinkingBudget: 0 } }, { maxOutputTokens: 400, thinkingConfig: { thinkingLevel: "minimal" } }, { maxOutputTokens: 400 }, null];
-  let r;
-  for (const cfg of intentos) {
+  let r, usado = 0;
+  for (let n = +get("nova_cfg", "0"); n < intentos.length; n++) {
+    const cfg = intentos[n]; usado = n;
     r = await fetch(API + "models/" + modelo + ":streamGenerateContent?alt=sse", { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": clave }, body: cuerpo(cfg) });
     if (r.status !== 400) break;
   }
+  if (r.ok) set("nova_cfg", String(usado));
+  info.modelo = modelo; info.cfg = usado;
   if (!r.ok) { let d = {}; try { d = await r.json(); } catch (e) {} return { r, d }; }
   const lector = r.body.getReader(), dec = new TextDecoder();
   let buf = "", texto = "";
@@ -137,13 +148,16 @@ async function preguntar(texto, onTexto) {
 }
 
 let estado = "idle", pendientes = 0;
+const info = { modelo: "", cfg: 0 };
 async function enviar(texto) {
   texto = (texto || "").trim(); if (!texto) return;
   if ("speechSynthesis" in window) speechSynthesis.cancel();
   pendientes = 0; estado = "piensa"; $("msg").textContent = "…";
-  let cola = "";
+  let cola = "", tIni = performance.now(), tPrimera = 0;
+  $("info").textContent = "";
   try {
     const r = await preguntar(texto, (parte, todo) => {
+      if (!tPrimera) tPrimera = performance.now();
       $("msg").textContent = todo;
       cola += parte;
       let m;
@@ -151,6 +165,8 @@ async function enviar(texto) {
     });
     if (cola.trim()) decir(cola);
     $("msg").textContent = r;
+    const sg = x => ((x - tIni) / 1000).toFixed(1) + "s";
+    $("info").textContent = info.modelo + " · 1ª palabra " + sg(tPrimera || performance.now()) + " · total " + sg(performance.now());
   } catch (e) { $("msg").textContent = "No pude conectar con Gemini: " + e.message; }
   estado = pendientes ? "habla" : "idle";
 }
@@ -190,10 +206,23 @@ function modo(t) { $("tVoz").classList.toggle("on", t === "voz"); $("tTec").clas
 $("tVoz").onclick = () => modo("voz"); $("tTec").onclick = () => modo("tec");
 $("send").onclick = () => { const t = $("txt").value; $("txt").value = ""; enviar(t); };
 $("txt").onkeydown = e => { if (e.key === "Enter") $("send").click(); };
-function abrirAjustes() { $("clave").value = get("nova_clave", ""); $("brillo").value = get("nova_brillo", "1"); $("ajustes").classList.add("on"); }
+async function llenarModelos() {
+  const sel = $("modelo"), clave = get("nova_clave", ""), actual = get("nova_modelo", "");
+  sel.innerHTML = '<option value="">Automático</option>';
+  if (actual) { const o = document.createElement("option"); o.value = actual; o.textContent = actual; sel.appendChild(o); }
+  sel.value = actual;
+  if (!clave) return;
+  try {
+    const lista = await listarModelos(clave);
+    lista.sort().forEach(n => { if (n !== actual) { const o = document.createElement("option"); o.value = n; o.textContent = n; sel.appendChild(o); } });
+    sel.value = actual;
+  } catch (e) {}
+}
+function abrirAjustes() { llenarModelos(); $("clave").value = get("nova_clave", ""); $("brillo").value = get("nova_brillo", "1"); $("ajustes").classList.add("on"); }
 $("gear").onclick = abrirAjustes; $("tAju").onclick = abrirAjustes;
 $("brillo").oninput = e => { brillo = +e.target.value; };
-$("cerrar").onclick = () => { set("nova_clave", $("clave").value.trim()); set("nova_brillo", $("brillo").value); $("ajustes").classList.remove("on"); };
+$("cerrar").onclick = () => { set("nova_clave", $("clave").value.trim());
+  const m = $("modelo").value; if (m !== get("nova_modelo", "")) { set("nova_cfg", "0"); try { if (m) localStorage.setItem("nova_modelo", m); else localStorage.removeItem("nova_modelo"); } catch (e) {} } set("nova_brillo", $("brillo").value); $("ajustes").classList.remove("on"); };
 let brillo = +get("nova_brillo", "1");
 
 // ====== ESFERA 3D ======
